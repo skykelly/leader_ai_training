@@ -1,46 +1,64 @@
 import * as THREE from 'three'
 import gsap from 'gsap'
-import { auraVertex, auraFragment } from './shaders'
+import { dotVertex, dotFragment } from './shaders'
 import { palettes, type PaletteName } from './palettes'
+
+const ROWS = 36
+const MAX_DOTS = 6000
 
 /**
  * 전역 아우라 배경 씬.
- * 풀스크린 셰이더 플레인 하나를 오소그래픽으로 렌더링하고,
- * 스크롤/마우스/팔레트를 uniform으로 흘려보낸다.
+ * 커서·스크롤에 반응하는 dot 필드를 Three.js Points로 렌더링하고,
+ * 팔레트/강도를 uniform으로 흘려보낸다. 격자는 뷰포트 비율이 바뀔 때마다
+ * (리사이즈) 물리적으로 균일한 간격을 유지하도록 다시 생성된다.
  */
 export class AuraScene {
   private renderer: THREE.WebGLRenderer
   private scene = new THREE.Scene()
   private camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
   private material: THREE.ShaderMaterial
+  private points: THREE.Points
+  private geometry: THREE.BufferGeometry
   private targetMouse = new THREE.Vector2(0, 0)
   private tickerFn: () => void
   private onResize: () => void
   private onPointerMove: (e: PointerEvent) => void
+  private resizeTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false })
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
+    this.renderer.setClearColor(0x000000, 0)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+    this.geometry = new THREE.BufferGeometry()
     this.material = new THREE.ShaderMaterial({
-      vertexShader: auraVertex,
-      fragmentShader: auraFragment,
+      vertexShader: dotVertex,
+      fragmentShader: dotFragment,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      blending: THREE.AdditiveBlending,
       uniforms: {
         uTime: { value: 0 },
         uScroll: { value: 0 },
         uIntensity: { value: 0 },
         uMouse: { value: new THREE.Vector2(0, 0) },
         uResolution: { value: new THREE.Vector2(1, 1) },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+        uBaseSize: { value: 3.2 },
         uColorA: { value: new THREE.Color(palettes.hero[0]) },
         uColorB: { value: new THREE.Color(palettes.hero[1]) },
         uColorC: { value: new THREE.Color(palettes.hero[2]) },
-        uBg: { value: new THREE.Color('#050208') },
       },
     })
 
-    this.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material))
+    this.points = new THREE.Points(this.geometry, this.material)
+    this.scene.add(this.points)
 
-    this.onResize = () => this.resize()
+    this.onResize = () => {
+      clearTimeout(this.resizeTimer)
+      this.resizeTimer = setTimeout(() => this.resize(), 120)
+    }
     this.onPointerMove = (e) => {
       this.targetMouse.set(
         (e.clientX / window.innerWidth) * 2 - 1,
@@ -54,11 +72,41 @@ export class AuraScene {
     this.tickerFn = () => {
       const u = this.material.uniforms
       u.uTime.value = gsap.ticker.time
-      // 마우스는 lerp로 부드럽게 따라온다
-      ;(u.uMouse.value as THREE.Vector2).lerp(this.targetMouse, 0.05)
+      ;(u.uMouse.value as THREE.Vector2).lerp(this.targetMouse, 0.08)
       this.renderer.render(this.scene, this.camera)
     }
     gsap.ticker.add(this.tickerFn)
+  }
+
+  /** 뷰포트 비율에 맞춰 물리적으로 정사각 간격인 dot 격자를 새로 만든다 */
+  private buildGrid(ratio: number) {
+    const cols = Math.max(8, Math.round(ROWS * ratio))
+    const rows = ROWS
+    const total = cols * rows
+    const scale = total > MAX_DOTS ? Math.sqrt(MAX_DOTS / total) : 1
+    const c = Math.max(4, Math.round(cols * scale))
+    const r = Math.max(4, Math.round(rows * scale))
+
+    const positions = new Float32Array(c * r * 3)
+    const randoms = new Float32Array(c * r)
+    let i = 0
+    for (let y = 0; y < r; y++) {
+      for (let x = 0; x < c; x++) {
+        const u = (x / (c - 1)) * 2 - 1
+        const v = (y / (r - 1)) * 2 - 1
+        positions[i * 3] = u * ratio
+        positions[i * 3 + 1] = v
+        positions[i * 3 + 2] = 0
+        randoms[i] = Math.random()
+        i++
+      }
+    }
+
+    this.geometry.dispose()
+    this.geometry = new THREE.BufferGeometry()
+    this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    this.geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1))
+    this.points.geometry = this.geometry
   }
 
   /** 팔레트 전환 — GSAP으로 각 색상 채널을 lerp */
@@ -109,12 +157,16 @@ export class AuraScene {
     const h = window.innerHeight
     this.renderer.setSize(w, h)
     ;(this.material.uniforms.uResolution.value as THREE.Vector2).set(w, h)
+    this.material.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2)
+    this.buildGrid(w / h)
   }
 
   dispose() {
+    clearTimeout(this.resizeTimer)
     gsap.ticker.remove(this.tickerFn)
     window.removeEventListener('resize', this.onResize)
     window.removeEventListener('pointermove', this.onPointerMove)
+    this.geometry.dispose()
     this.renderer.dispose()
     this.material.dispose()
   }

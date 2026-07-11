@@ -1,32 +1,22 @@
 /**
- * 아우라 셰이더 — simplex noise 기반 domain warping으로
- * 무지갯빛(iridescent) 그라디언트 오브를 그린다.
- * 원본 사이트의 AstroGL 아우라를 프래그먼트 셰이더 하나로 재현한 것.
+ * Dot 필드 셰이더 — preparetopioneer.com 스타일의 인터랙티브 점 애니메이션.
+ * 격자 형태로 배치된 점들이 simplex noise로 유기적으로 숨쉬듯 밝기·크기가
+ * 요동치고, 커서 근처의 점은 밝아지며 살짝 밀려난다.
  */
 
-export const auraVertex = /* glsl */ `
-varying vec2 vUv;
+export const dotVertex = /* glsl */ `
+attribute float aRandom;
 
-void main() {
-  vUv = uv;
-  gl_Position = vec4(position, 1.0);
-}
-`
-
-export const auraFragment = /* glsl */ `
-precision highp float;
-
-varying vec2 vUv;
+varying float vGlow;
+varying float vMix;
 
 uniform float uTime;
-uniform float uScroll;      // 0..1 페이지 스크롤 진행도
-uniform float uIntensity;   // 아우라 강도(퀴즈 선택 등에서 펄스)
-uniform vec2  uMouse;       // -1..1 마우스 위치(lerp됨)
+uniform float uScroll;
+uniform float uIntensity;
+uniform vec2  uMouse;       // -1..1, lerp된 커서 위치
 uniform vec2  uResolution;
-uniform vec3  uColorA;
-uniform vec3  uColorB;
-uniform vec3  uColorC;
-uniform vec3  uBg;
+uniform float uPixelRatio;
+uniform float uBaseSize;
 
 // --- simplex noise (Ashima / IQ 계열 표준 구현) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -59,7 +49,7 @@ float snoise(vec2 v) {
 float fbm(vec2 p) {
   float v = 0.0;
   float a = 0.55;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 3; i++) {
     v += a * snoise(p);
     p = p * 2.1 + 13.7;
     a *= 0.5;
@@ -68,41 +58,51 @@ float fbm(vec2 p) {
 }
 
 void main() {
-  vec2 uv = vUv;
-  vec2 st = uv - 0.5;
-  st.x *= uResolution.x / uResolution.y;
+  float ratio = uResolution.x / uResolution.y;
+  vec2 pos = position.xy; // 이미 물리적으로 정사각 비례가 되도록 JS에서 생성된 격자 좌표
+  vec2 mouseP = vec2(uMouse.x * ratio, uMouse.y);
+  float distToMouse = length(pos - mouseP);
 
-  float t = uTime * 0.08;
+  // 유기적인 "숨쉬기": 노이즈 위상에 점마다 랜덤 오프셋을 주어 파도치듯 밝기가 변한다
+  float n = fbm(pos * 1.3 + vec2(uTime * 0.06, -uTime * 0.04) + uScroll * 2.2 + aRandom * 8.0);
+  float mouseInfluence = smoothstep(0.45, 0.0, distToMouse);
 
-  // 아우라 중심: 마우스를 살짝 따라오고, 스크롤에 따라 위로 흘러간다
-  vec2 center = uMouse * 0.18 + vec2(0.0, -0.08 + uScroll * 0.25);
-  float d = length(st - center);
+  float pulse = 0.35 + 0.65 * (0.5 + 0.5 * sin(n * 3.0 + aRandom * 6.2831 + uTime * 0.6));
+  float glow = pulse * uIntensity + mouseInfluence * 1.5;
+  vGlow = clamp(glow, 0.0, 2.4);
+  vMix = n;
 
-  // domain warping: 노이즈 좌표를 노이즈로 다시 왜곡 → 유기적인 흐름
-  vec2 q = vec2(fbm(st * 1.6 + t), fbm(st * 1.6 - t * 0.7 + 5.2));
-  float n = fbm(st * 2.2 + q * 1.4 + uScroll * 2.0);
+  // 커서 주변 점은 살짝 밀려나 촉각적인 반응을 만든다
+  vec2 pushDir = (pos - mouseP) / (distToMouse + 0.0001);
+  vec2 displaced = pos + pushDir * mouseInfluence * 0.06;
 
-  // 오브 형태: 중심에서 멀어질수록 감쇠, 노이즈로 가장자리를 흔든다
-  float orb = smoothstep(0.85 + n * 0.25, 0.0, d);
-  orb = pow(orb, 1.6) * uIntensity;
+  gl_Position = vec4(displaced.x / ratio, displaced.y, 0.0, 1.0);
+  gl_PointSize = uBaseSize * (0.55 + vGlow * 0.85) * uPixelRatio;
+}
+`
 
-  // 3색 iridescent 혼합
-  float m1 = 0.5 + 0.5 * sin(n * 3.0 + t * 2.0);
-  float m2 = 0.5 + 0.5 * sin(n * 5.0 - t * 1.4 + d * 4.0);
-  vec3 aura = mix(uColorA, uColorB, m1);
-  aura = mix(aura, uColorC, m2 * 0.6);
+export const dotFragment = /* glsl */ `
+precision highp float;
 
-  vec3 color = uBg + aura * orb;
+varying float vGlow;
+varying float vMix;
 
-  // 은은한 별(스파클) — 고주파 노이즈 임계값
-  float star = smoothstep(0.985, 1.0, snoise(st * 60.0 + t * 0.5));
-  color += star * 0.35 * (1.0 - orb);
+uniform vec3 uColorA;
+uniform vec3 uColorB;
+uniform vec3 uColorC;
 
-  // 비네트 + 필름 그레인
-  color *= 1.0 - dot(st, st) * 0.45;
-  float grain = fract(sin(dot(uv * uTime, vec2(12.9898, 78.233))) * 43758.5453);
-  color += (grain - 0.5) * 0.03;
+void main() {
+  // 정사각 포인트를 부드러운 원으로 마스킹
+  vec2 c = gl_PointCoord - 0.5;
+  float d = length(c) * 2.0;
+  float circle = smoothstep(1.0, 0.35, d);
+  if (circle <= 0.001) discard;
 
-  gl_FragColor = vec4(color, 1.0);
+  float m1 = 0.5 + 0.5 * sin(vMix * 3.0);
+  vec3 color = mix(uColorA, uColorB, m1);
+  color = mix(color, uColorC, smoothstep(0.25, 1.0, vGlow) * 0.55);
+
+  float alpha = circle * clamp(vGlow * 0.75, 0.1, 1.0);
+  gl_FragColor = vec4(color, alpha);
 }
 `
