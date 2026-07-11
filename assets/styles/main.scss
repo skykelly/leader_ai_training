@@ -1,0 +1,123 @@
+/* ==========================================================================
+   Global styles — dark space theme inspired by preparetopioneer.com
+   ========================================================================== */
+
+:root {
+  --bg: #050208;
+  --bg-soft: #0b0614;
+  --ink: #f4f1ff;
+  --ink-muted: rgba(244, 241, 255, 0.62);
+  --ink-faint: rgba(244, 241, 255, 0.32);
+  --line: rgba(244, 241, 255, 0.14);
+
+  --accent-a: #8b5cf6;
+  --accent-b: #22d3ee;
+  --accent-c: #f472b6;
+
+  --font-display: 'Space Grotesk Variable', 'Pretendard Variable', sans-serif;
+  --font-body: 'Pretendard Variable', 'Space Grotesk Variable', sans-serif;
+
+  /* fluid type scale */
+  --text-hero: clamp(3rem, 11vw, 10.5rem);
+  --text-xl: clamp(2rem, 5.5vw, 4.5rem);
+  --text-lg: clamp(1.4rem, 3vw, 2.4rem);
+  --text-md: clamp(1.05rem, 1.6vw, 1.25rem);
+  --text-sm: clamp(0.8rem, 1.1vw, 0.9rem);
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-faint) transparent;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent-a);
+  color: var(--bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+img,
+canvas,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+/* --- shared utilities ------------------------------------------------- */
+
+.container {
+  width: min(100% - 3rem, 80rem);
+  margin-inline: auto;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* SplitText 리빌용: 줄 단위 마스킹 */
+.split-mask .line {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
