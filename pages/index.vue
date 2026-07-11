@@ -1,30 +1,45 @@
 <template>
   <main>
-    <section class="hero">
-      <p class="eyebrow">Scrollytelling study</p>
-      <h1 class="display">Prepare<br />to Pioneer</h1>
-      <p class="lede">스크롤리텔링 학습 프로젝트 — 곧 채워질 예정입니다.</p>
-      <NuxtLink to="/experience">경험 시작하기 →</NuxtLink>
-    </section>
+    <HeroSection />
+    <NarrativeSection
+      v-for="(s, i) in narrative"
+      :key="s.title"
+      :index="i"
+      v-bind="s"
+    />
+    <AppMarquee text="Prepare to Pioneer" />
+    <PillarsSection />
+    <CtaSection />
+    <AppFooter />
   </main>
 </template>
 
-<style scoped>
-.hero {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 0 1.5rem;
-}
+<script setup lang="ts">
+import type { PaletteName } from '~/webgl/palettes'
 
-.hero h1 {
-  font-size: var(--text-hero);
-}
-
-.lede {
-  color: var(--ink-muted);
-  max-width: 32rem;
-}
-</style>
+const narrative: {
+  eyebrow: string
+  title: string
+  body: string
+  palette: PaletteName
+}[] = [
+  {
+    eyebrow: 'Chapter 01',
+    title: 'New frontiers\nawait',
+    body: 'AI가 모든 산업의 지도를 다시 그리고 있습니다. 지금 우리 앞에 놓인 것은 위기가 아니라, 아직 이름 붙지 않은 새로운 영토입니다.',
+    palette: 'frontier',
+  },
+  {
+    eyebrow: 'Chapter 02',
+    title: 'Pioneers\ngo first',
+    body: '개척자는 완벽한 지도를 기다리지 않습니다. 먼저 걸으며 지도를 그리는 사람, 실험과 실패를 연료로 삼는 사람입니다.',
+    palette: 'power',
+  },
+  {
+    eyebrow: 'Chapter 03',
+    title: 'Unlock your\npioneering power',
+    body: '누구에게나 고유한 개척의 방식이 있습니다. 당신의 아우라를 확인하고, 당신답게 앞서 나가는 법을 발견하세요.',
+    palette: 'hero',
+  },
+]
+</script>

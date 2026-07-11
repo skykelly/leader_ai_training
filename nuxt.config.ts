@@ -3,6 +3,8 @@ export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: false },
 
+  components: [{ path: '~/components', pathPrefix: false }],
+
   css: [
     '@fontsource-variable/space-grotesk/index.css',
     'pretendard/dist/web/variable/pretendardvariable.css',
