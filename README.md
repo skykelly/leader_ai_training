@@ -1,63 +1,60 @@
-# Prepare to Pioneer — 스크롤리텔링 학습 클론
+# Scroll Study Library — 스크롤리텔링 학습 클론 컬렉션
 
-[preparetopioneer.com](https://preparetopioneer.com/)(DEPT 에이전시)의 인터랙티브·스크롤리텔링 기법을
-학습하기 위해 동일한 구성과 기술 패턴으로 재현한 프로젝트입니다.
-원본은 Nuxt.js + 자체 WebGL 라이브러리(AstroGL)로 제작되었고,
-이 프로젝트는 **Nuxt 3 + GSAP + Three.js + Lenis**로 같은 효과를 구현합니다.
+어워드 수상 사이트들의 스크롤리텔링·인터랙션 기법을 하나씩 따라 만드는 학습 클론 모노레포입니다.
+메인 페이지는 각 라이브러리의 썸네일과 활용 기술을 설명하는 블로그 포털이고,
+각 클론은 독립된 Nuxt 앱으로 서브패스에 배포됩니다.
+
+**배포**: https://skykelly.github.io/leader_ai_training/
+
+## 라이브러리
+
+| # | 이름 | 원본 | 핵심 기법 | 경로 |
+|---|---|---|---|---|
+| 01 | Prepare to Pioneer | [preparetopioneer.com](https://preparetopioneer.com/) (DEPT) | WebGL dot 필드, Lenis+ScrollTrigger 핀/스크럽, SplitText 리빌, 규칙 기반 진단 플로우 | [`apps/pioneer`](apps/pioneer) → `/pioneer/` |
+| 02 | Wave Study | [waaark.com](https://waaark.com/) | SVG 웨이브/리퀴드 전환(path 모핑), GSAP Observer 풀페이지 슬라이드, 일러스트 드로우온 | [`apps/waaark`](apps/waaark) → `/waaark/` |
+
+기법별 상세 설명은 포털의 라이브러리 상세 페이지(데이터 소스: [`apps/portal/data/libraries.ts`](apps/portal/data/libraries.ts))에 있습니다.
+
+## 구조
+
+```
+apps/
+├── portal/    # 메인 블로그 포털 (배포 루트)
+├── pioneer/   # 라이브러리 #1
+└── waaark/    # 라이브러리 #2
+scripts/build-dist.sh   # 전체 앱 빌드 → dist/ 조립 (CI와 로컬 공용)
+```
+
+- npm workspaces 모노레포 — 루트에서 `npm install` 한 번으로 전체 설치
+- 각 앱은 완전히 독립된 Nuxt 3 앱 (라이브러리마다 다른 스택 실험 가능)
 
 ## 실행
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
-npm run generate   # 정적 빌드 → .output/public (GitHub Pages 등에 배포 가능)
+npm run dev:portal    # http://localhost:3002
+npm run dev:pioneer   # http://localhost:3000
+npm run dev:waaark    # http://localhost:3001
+
+# 배포와 동일한 통합 빌드 (dist/ 생성)
+bash scripts/build-dist.sh
 ```
 
-## 페이지 구성
+## 배포
 
-- **/** — 스크롤 내러티브: 프리로더 → 히어로 → 핀 고정 챕터 3개 → 마퀴 → 필러(카운터) → CTA → 푸터
-- **/experience** — 진단 플로우: 인트로 → 5문항(선택마다 아우라 모핑) → 파이오니어 유형 결과(4종, 규칙 기반 스코어링)
+`main` 브랜치 push 시 `.github/workflows/deploy.yml`이 `scripts/build-dist.sh`로
+모든 앱을 빌드해 GitHub Pages에 배포합니다. 포털이 루트, 각 클론이 `/<slug>/`를 차지합니다.
+Nuxt의 `NUXT_APP_BASE_URL` 환경변수로 앱별 base path를 빌드 시점에 주입하므로
+로컬 dev는 항상 `/` 기준으로 동작합니다.
 
-## 기법 → 구현 매핑
+## 새 라이브러리 추가하기
 
-| 기법 | 구현 위치 | 핵심 |
-|---|---|---|
-| 관성 스무스 스크롤 | `composables/useLenis.ts` | Lenis rAF를 GSAP ticker가 구동, `lenis.on('scroll', ScrollTrigger.update)`로 동기화 |
-| 핀 고정 + 스크럽 | `components/sections/NarrativeSection.vue` | ScrollTrigger `pin` + `scrub` — 섹션을 고정한 채 스크롤 양으로 타임라인을 문지름 |
-| 글자 단위 텍스트 리빌 | `composables/useSplitReveal.ts` | GSAP SplitText(3.13부터 무료)로 행 마스크 안에서 글자가 올라오는 시그니처 리빌 |
-| WebGL 아우라 배경 | `webgl/AuraScene.ts`, `webgl/shaders.ts` | 풀스크린 셰이더 플레인 + simplex noise domain warping, 스크롤/마우스/팔레트를 uniform으로 전달 |
-| 섹션별 색 모핑 | `webgl/palettes.ts`, `composables/useAura.ts` | 전역 캔버스 1개를 두고 각 섹션이 `aura.setPalette()`로 색상 uniform을 GSAP lerp |
-| 패럴랙스 | `NarrativeSection.vue`의 거대 숫자 | 스크럽 타임라인에서 `yPercent`를 다른 속도로 이동 |
-| 무한 마퀴 | `components/app/AppMarquee.vue` | 동일 텍스트 4회 반복 후 `xPercent: -25` 무한 트윈 |
-| 숫자 카운터 | `components/sections/PillarsSection.vue` | 뷰포트 진입 시 객체 값을 트윈하며 textContent 갱신 |
-| 프리로더 | `components/app/AppPreloader.vue` | 카운터 연출 후 `clip-path` 마스크 리빌, 완료 상태를 `useState`로 공유해 히어로 인트로 트리거 |
-| 페이지 전환 와이프 | `app.vue` | Vue transition JS 훅에서 GSAP으로 오버레이가 덮고 걷히는 연출 + `ScrollTrigger.refresh()` |
-| 커스텀 커서 | `components/app/AppCursor.vue` | `gsap.quickTo`로 점(즉시)/링(관성) 이중 추적, 인터랙티브 요소 위에서 확대 |
-| 마그네틱 버튼 | `components/ui/MagneticButton.vue` | 커서 방향으로 끌려오고 elastic 이징으로 복귀 |
-| 접근성 폴백 | `components/app/AuraCanvas.vue` 등 | `prefers-reduced-motion` 시 WebGL 대신 정적 그라디언트, 스무스 스크롤 비활성 |
-
-## 진단 로직
-
-`data/questions.ts`의 각 선택지가 유형별 가중치를 갖고, 합산 최다 득점 유형
-(`data/personas.ts`: Visionary / Explorer / Catalyst / Guardian)이 결과가 됩니다.
-선택 순간마다 해당 유형의 팔레트로 아우라가 모핑하고 펄스가 발생합니다.
-
-## GitHub Pages 배포
-
-`main` 브랜치에 push되면 `.github/workflows/deploy.yml`이 자동으로 정적 빌드를 생성해
-GitHub Pages에 배포합니다. 배포 URL: **https://skykelly.github.io/leader_ai_training/**
-
-- 워크플로우는 `npm run generate`를 `NUXT_APP_BASE_URL=/leader_ai_training/` 환경변수와 함께 실행합니다.
-  Nuxt 3는 이 환경변수로 `app.baseURL`을 자동 오버라이드하므로 `nuxt.config.ts`는 건드리지 않으며,
-  로컬 `npm run dev`/`npm run generate`는 그대로 `/` 기준으로 동작합니다.
-- `.nojekyll` 파일을 산출물에 추가해 `_nuxt/` 같은 언더스코어 프리픽스 디렉터리가
-  Jekyll에 의해 무시되지 않도록 합니다.
-- **1회성 설정 필요**: 저장소 Settings → Pages → Build and deployment → Source를
-  **"GitHub Actions"**로 지정해야 워크플로우의 배포 잡이 동작합니다.
-- 커스텀 도메인을 나중에 연결하려면 `NUXT_APP_BASE_URL`을 `/`로 바꾸고 `public/CNAME` 파일을 추가하세요.
-- 수동 재배포는 Actions 탭 → "Deploy to GitHub Pages" → *Run workflow*(`workflow_dispatch`)로 가능합니다.
+1. `apps/<slug>/` 에 독립 Nuxt 앱 생성 (`package.json`의 `generate` 스크립트 필수, dev 포트는 겹치지 않게)
+2. `apps/portal/data/libraries.ts` 에 항목 추가 (제목, 원본, 스택, 기법 설명)
+3. 대표 화면을 캡처해 `apps/portal/public/thumbs/<slug>.png` 로 저장
+4. 끝 — 배포 워크플로우는 `apps/*`를 자동 순회하므로 수정 불필요
 
 ## 참고
 
-- nuxt는 3.20.2로 고정되어 있습니다 — 3.21.8의 `ssr: false` dev 서버 버그
-  (`No entry found in rollupOptions.input`) 회피 목적.
+- nuxt는 3.20.2로 고정 — 3.21.8의 `ssr: false` dev 서버 버그(`No entry found in rollupOptions.input`) 회피
+- 모든 클론은 학습 목적으로 원본의 기법만 재현하며, 콘텐츠·브랜딩은 자체 제작입니다

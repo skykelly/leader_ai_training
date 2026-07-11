@@ -27,15 +27,14 @@ jobs:
 
       - run: npm install
 
-      - run: npm run generate
+      # apps/* 전체를 빌드해 dist/로 조립 (portal → 루트, 클론들 → 서브패스)
+      - run: bash scripts/build-dist.sh
         env:
-          NUXT_APP_BASE_URL: /leader_ai_training/
-
-      - run: touch .output/public/.nojekyll
+          BASE_PATH: /leader_ai_training/
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .output/public
+          path: dist
 
   deploy:
     needs: build
