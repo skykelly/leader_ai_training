@@ -36,8 +36,9 @@ export class AuraScene {
   private flow: FlowField | null = null
   private face: FaceCloud | null = null
 
-  constructor(canvas: HTMLCanvasElement, initialMode: AuraMode = 'flow') {
+  constructor(canvas: HTMLCanvasElement, initialMode: AuraMode = 'flow', initialPalette: PaletteName = 'hero') {
     this.mode = initialMode
+    const initColors = palettes[initialPalette]
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setClearColor(0x000000, 0)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -61,9 +62,9 @@ export class AuraScene {
         uDepthBoost: { value: initialMode === 'flow' ? 2.2 : 4.5 },
         uMouseFx: { value: initialMode === 'flow' ? 1 : 0 },
         uBreathAmount: { value: initialMode === 'flow' ? 1 : 0.4 },
-        uColorA: { value: new THREE.Color(palettes.hero[0]) },
-        uColorB: { value: new THREE.Color(palettes.hero[1]) },
-        uColorC: { value: new THREE.Color(palettes.hero[2]) },
+        uColorA: { value: new THREE.Color(initColors[0]) },
+        uColorB: { value: new THREE.Color(initColors[1]) },
+        uColorC: { value: new THREE.Color(initColors[2]) },
       },
     })
 

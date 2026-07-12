@@ -8,6 +8,7 @@ export const palettes = {
   frontier: ['#22d3ee', '#3b82f6', '#8b5cf6'],
   power: ['#f472b6', '#fb923c', '#8b5cf6'],
   cta: ['#a78bfa', '#f0abfc', '#22d3ee'],
+  faceBlue: ['#2563eb', '#38bdf8', '#93c5fd'],
 
   // 파이오니어 유형
   visionary: ['#a78bfa', '#f0abfc', '#60a5fa'],

@@ -30,7 +30,7 @@ const aura = useAura()
 
 onMounted(() => {
   aura.setMode('face')
-  aura.setPalette('hero', 0.6)
+  aura.setPalette('faceBlue', 0.6)
   aura.setIntensity(1.1)
 })
 
@@ -71,7 +71,7 @@ function restart() {
   scores.value = { visionary: 0, explorer: 0, catalyst: 0, guardian: 0 }
   step.value = 0
   result.value = null
-  aura.setPalette('hero')
+  aura.setPalette('faceBlue')
   aura.setIntensity(1.1)
   phase.value = 'intro'
 }
