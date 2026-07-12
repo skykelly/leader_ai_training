@@ -15,6 +15,7 @@
 | 03 | COGENT | [Lusion — Devin AI](https://archive-devin-ai.lusion.co) | 노이즈 변위 발광 구체(3D simplex), 후처리 없는 bloom(글로우 셸), 스크롤 연동 색/스케일 모핑 | [`apps/lusion`](apps/lusion) → `/lusion/` |
 | 04 | VECTOR | [Madar 물류 플랫폼](https://madarplatform.com/en) (Vide Infra) | 경로(path) 3D 모티프, 스크롤 연동 카메라 돌리, 둥근 모서리·블러 카드, 숫자 카운트업 | [`apps/madar`](apps/madar) → `/madar/` |
 | 05 | AEOLIA | [Virya Energy 풍력 에너지](https://virya-energy.com/our-expertise/wind-energy/) (Studio Ruelle) | 클립패스 아이리스 히어로 리빌, 무한 회전 SVG 일러스트, 원형 게이지 차트, 스크롤 타임라인 | [`apps/virya`](apps/virya) → `/virya/` |
+| 06 | CONDUIT | [Monad 보안 데이터 파이프라인](https://www.monad.com/) | SVG 모션패스 파티클, 스크롤 핀 파이프라인 다이어그램, 노이즈→시그널 스크럽 모핑 | [`apps/monad`](apps/monad) → `/monad/` |
 
 기법별 상세 설명은 포털의 라이브러리 상세 페이지(데이터 소스: [`apps/portal/data/libraries.ts`](apps/portal/data/libraries.ts))에 있습니다.
 
@@ -27,7 +28,8 @@ apps/
 ├── waaark/    # 라이브러리 #2
 ├── lusion/    # 라이브러리 #3
 ├── madar/     # 라이브러리 #4
-└── virya/     # 라이브러리 #5
+├── virya/     # 라이브러리 #5
+└── monad/     # 라이브러리 #6
 scripts/build-dist.sh   # 전체 앱 빌드 → dist/ 조립 (CI와 로컬 공용)
 ```
 
@@ -44,6 +46,7 @@ npm run dev:waaark    # http://localhost:3001
 npm run dev:lusion    # http://localhost:3003
 npm run dev:madar     # http://localhost:3004
 npm run dev:virya     # http://localhost:3005
+npm run dev:monad     # http://localhost:3006
 
 # 배포와 동일한 통합 빌드 (dist/ 생성)
 bash scripts/build-dist.sh

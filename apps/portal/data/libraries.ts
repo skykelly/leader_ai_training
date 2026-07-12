@@ -249,6 +249,36 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'monad',
+    title: 'CONDUIT',
+    titleKo: '컨듀잇 — 모션패스 파이프라인과 노이즈→시그널 모핑',
+    tagline: 'SVG 모션패스 파티클 · 스크롤 핀 파이프라인 다이어그램 · 노이즈→시그널 스크럽 모핑',
+    original: { name: 'Monad — 보안 데이터 파이프라인', url: 'https://www.monad.com/' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'GSAP ScrollTrigger', 'SVG'],
+    accent: '#22d3ee',
+    thumb: 'thumbs/monad.png',
+    summary:
+      '보안 데이터 파이프라인 플랫폼 Monad의 제품 컨셉("여러 보안 툴의 데이터를 수집·정규화·필터링·라우팅한다")을 스크롤리텔링 기법으로 직접 설계한 여섯 번째 학습 클론입니다. Monad는 알려진 수상 이력이나 문서화된 시그니처 기법이 없어, 원본의 정확한 구현을 재현하는 대신 "데이터 파이프라인"이라는 제품 컨셉 자체를 히어로의 모션패스 파티클 흐름, 스크롤 연동 파이프라인 단계 다이어그램, 노이즈→시그널 모핑으로 형상화했습니다. 다른 라이브러리와 달리 WebGL 없이 순수 SVG/DOM + GSAP만으로 구현했습니다. 콘텐츠는 가상의 보안 데이터 파이프라인 플랫폼 "CONDUIT"으로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: 'SVG 모션패스 파티클 플로우',
+        how: '여러 소스 노드에서 중앙 파이프 노드로 이어지는 베지어 곡선 위를, `path.getTotalLength()`/`getPointAtLength()`로 매 프레임 위치를 계산한 파티클이 위상차를 두고 흐릅니다. 파이프를 통과한 뒤에는 노이즈색에서 시그널색으로 바뀝니다.',
+        file: 'apps/monad/components/HeroFlow.vue',
+      },
+      {
+        name: '스크롤 핀 파이프라인 단계 다이어그램',
+        how: '섹션을 pin한 채, 가로 파이프 경로의 `stroke-dashoffset`을 스크롤 진행도로 스크럽해 채우고, 진행도에 따라 4단계(Collect/Normalize/Filter/Route) 노드와 설명 패널이 순차적으로 활성화·크로스페이드됩니다.',
+        file: 'apps/monad/components/PipelineStages.vue',
+      },
+      {
+        name: 'Noise → Signal 스크럽 모핑',
+        how: '각 점에 무작위(noise) 좌표와 정렬된 그리드(signal) 좌표를 미리 계산해두고, ScrollTrigger 진행도로 두 좌표를 선형보간합니다. `color-mix()`로 색상도 노이즈색→시그널색으로 함께 전환됩니다.',
+        file: 'apps/monad/components/NoiseToSignal.vue',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {

@@ -1,0 +1,101 @@
+/* ==========================================================================
+   CONDUIT — Monad(보안 데이터 파이프라인) 컨셉 학습 클론.
+   딥 슬레이트 배경 위에 "정돈된 신호"는 시안, "흩어진 노이즈"는 코럴-레드로
+   대비시키는 보안/터미널풍 다크 팔레트. WebGL 없이 SVG/DOM + GSAP로 구현.
+   ========================================================================== */
+
+:root {
+  --bg: #0b0f14;
+  --bg-soft: #121821;
+  --ink: #eef2f5;
+  --ink-muted: rgba(238, 242, 245, 0.6);
+  --ink-faint: rgba(238, 242, 245, 0.3);
+  --line: rgba(238, 242, 245, 0.12);
+  --signal: #22d3ee;
+  --signal-b: #6ee7c4;
+  --noise: #ff5470;
+
+  --font-display: 'Space Grotesk Variable', 'Pretendard Variable', sans-serif;
+  --font-body: 'Pretendard Variable', 'Space Grotesk Variable', sans-serif;
+
+  --text-hero: clamp(2.6rem, 7vw, 6.2rem);
+  --text-xl: clamp(1.8rem, 3.4vw, 2.8rem);
+  --text-lg: clamp(1.2rem, 2vw, 1.5rem);
+  --text-md: clamp(1rem, 1.3vw, 1.1rem);
+  --text-sm: clamp(0.75rem, 1vw, 0.85rem);
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.container {
+  width: min(100% - 3rem, 72rem);
+  margin-inline: auto;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.mono {
+  font-family: 'Space Grotesk Variable', monospace;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.split-mask .line {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
