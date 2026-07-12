@@ -59,7 +59,7 @@ export class AuraScene {
         uResolution: { value: new THREE.Vector2(1, 1) },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
         uBaseSize: { value: initialMode === 'flow' ? 3.2 : 2.1 },
-        uDepthBoost: { value: initialMode === 'flow' ? 2.2 : 0.9 },
+        uDepthBoost: { value: initialMode === 'flow' ? 2.2 : 1.2 },
         uFeatureBoost: { value: initialMode === 'flow' ? 0 : 13 },
         uMouseFx: { value: initialMode === 'flow' ? 1 : 0 },
         uBreathAmount: { value: initialMode === 'flow' ? 1 : 0.18 },
@@ -130,7 +130,7 @@ export class AuraScene {
       overwrite: 'auto',
     })
     gsap.to(this.material.uniforms.uDepthBoost, {
-      value: mode === 'flow' ? 2.2 : 0.9,
+      value: mode === 'flow' ? 2.2 : 1.2,
       duration: 0.4,
       overwrite: 'auto',
     })
