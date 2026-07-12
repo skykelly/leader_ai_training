@@ -1,70 +1,35 @@
-import { snoise2D } from './noise'
-
 /**
  * 정면 얼굴 point cloud.
- * 외부 3D 모델 없이, 타원 실루엣 안에서 격자 샘플링한 뒤 가우시안 범프를
- * 합성해 코·볼·입술·턱의 z(깊이)를 만든다. 각 셀은 simplex noise 밀도장과
- * 눈 영역 밀도 감쇠를 곱한 확률로 채택되어, 점이 성기게 흩뿌려진 노이즈
- * 텍스처가 되고 눈은 완전한 구멍이 아니라 "점이 드문 영역"으로 깊이를
- * 표현한다. 매 프레임 커서 방향으로 yaw/pitch를 lerp하며 회전시켜
- * "마우스를 바라보는" 느낌을 만든다.
+ * 외부 3D 모델 없이, 타원체(ellipsoid) 표면 위에 구조화된 위도/경도 격자를
+ * 씌우고, 각 점을 표면의 실제 바깥 방향(법선)을 따라 밀거나 당겨 코·볼·
+ * 입술·턱·눈두덩의 진짜 3D 굴곡을 만든다. 평평한 판에 z만 더하던 이전
+ * 방식과 달리, 옆으로 갈수록 자연스럽게 깊이가 줄어들어 회전시키면
+ * 실제 3/4 측면처럼 보인다.
+ *
+ * 정면(yaw=0)에서는 굴곡이 z(깊이)로만 나타나 정투영에서는 보이지 않으므로,
+ * 이목구비의 굴곡량 자체를 별도 채널(features)로 저장해 밝기를 직접
+ * 끌어올린다 — 얼굴 전체를 감싸는 완만한 타원체 깊이에 묻히지 않게 하기 위함.
+ * 항상 살짝 옆을 보는 기본 자세를 둬 정면에서도 입체감이 드러나게 한다.
  */
 
-// 세로로 더 긴 타원 실루엣. XS/YS는 아래 이목구비 범프들의 원래 튜닝 기준
-// (RX=0.5, RY=0.62)에서 얼마나 늘어났는지를 나타내는 배율이다.
-const RX = 0.44
-const RY = 0.78
-const XS = RX / 0.5
-const YS = RY / 0.62
+// 타원체 반지름(가로/세로/깊이). RZ(깊이)가 실제 입체감을 만드는 핵심 축이다.
+const RX = 0.42
+const RY = 0.64
+const RZ = 0.42
 
-const YAW_MAX = 0.5 // rad, 좌우로 바라볼 수 있는 최대 각도
-const PITCH_MAX = 0.32 // rad, 위아래
+// 격자가 감싸는 각도 범위 — theta: 좌우(경도), phi: 상하(위도, 0=정면 중심)
+const THETA_MAX = 1.72 // rad, ±약 98.5°: 정면 + 관자놀이까지
+const PHI_TOP = 1.32 // rad, 이마 위쪽
+const PHI_BOTTOM = -1.28 // rad, 턱 아래쪽
+
+const GRID_THETA = 108
+const GRID_PHI = 118
+
+const YAW_MAX = 0.55 // rad, 좌우로 바라볼 수 있는 최대 각도
+const PITCH_MAX = 0.3 // rad, 위아래
 const TURN_RATE = 2.2 // 목표 각도로 수렴하는 속도(클수록 빠르게 따라옴)
-
-// 격자 해상도 — 노이즈 기반 확률적 샘플링과 합쳐져 최종 밀도를 결정한다
-const GRID_X = 66
-const GRID_Y = 96
-
-const BASE_KEEP_PROB = 0.92 // 전체 밀도 — 윤곽이 잘 보이도록 이전보다 높임
-const DENSITY_NOISE_SCALE = 3.4 // 밀도 노이즈 필드의 공간 주파수 — 클수록 자잘한 얼룩
-const DENSITY_NOISE_MIN = 0.5 // 노이즈로 인한 최소 밀도 배율 — 텍스처는 남기되 윤곽을 덜 해치도록 완화
-const DEPTH_NOISE_AMOUNT = 0.018 // 표면 z에 섞는 미세한 랜덤 요철
-
-const EYE_RADIUS_X = 0.1
-const EYE_RADIUS_Y = 0.062
-const EYE_MIN_DENSITY = 0.22 // 눈 중심에서도 완전히 비우지 않고 이만큼은 남긴다
-const EYE_FALLOFF = 1.7 // 이 배수 거리에서 밀도가 다시 1로 회복
-
-function jawTaper(ny: number): number {
-  return ny < -0.15 ? Math.max(0.55, 1 - (-ny - 0.15) * 0.6) : 1
-}
-
-function inFace(x: number, y: number): boolean {
-  const nx = x / RX
-  const ny = y / RY
-  const t = jawTaper(ny)
-  return (nx * nx) / (t * t) + ny * ny <= 1
-}
-
-function eyeDist(x: number, y: number, sign: 1 | -1): number {
-  const dx = (x - sign * 0.19 * XS) / (EYE_RADIUS_X * XS)
-  const dy = (y - 0.08 * YS) / (EYE_RADIUS_Y * YS)
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-/** 눈에 가까울수록 낮아지는 밀도 배율(0..1) — 완전한 구멍이 아니라 성긴 영역을 만든다 */
-function eyeDensity(x: number, y: number): number {
-  const d = Math.min(eyeDist(x, y, 1), eyeDist(x, y, -1))
-  const t = Math.min(1, d / EYE_FALLOFF)
-  const smooth = t * t * (3 - 2 * t)
-  return EYE_MIN_DENSITY + (1 - EYE_MIN_DENSITY) * smooth
-}
-
-/** simplex 노이즈 기반 밀도장(0..1) — 균일한 격자 대신 성긴/짙은 얼룩을 만든다 */
-function noiseDensity(x: number, y: number): number {
-  const n = snoise2D(x * DENSITY_NOISE_SCALE, y * DENSITY_NOISE_SCALE) // -1..1
-  return DENSITY_NOISE_MIN + (1 - DENSITY_NOISE_MIN) * (n * 0.5 + 0.5)
-}
+const IDLE_YAW = 0.16 // 마우스가 중앙에 있어도 완전한 정면이 되지 않도록 하는 기본 각도
+const IDLE_PITCH = -0.05
 
 function bump(x: number, y: number, cx: number, cy: number, sx: number, sy: number, amp: number): number {
   const dx = (x - cx) / sx
@@ -72,20 +37,32 @@ function bump(x: number, y: number, cx: number, cy: number, sx: number, sy: numb
   return amp * Math.exp(-(dx * dx + dy * dy))
 }
 
-/** 이목구비 깊이(z) — 값이 클수록 앞으로 튀어나온 것 */
-function faceZ(x: number, y: number): number {
-  const nx = x / RX
-  const ny = y / RY
-  let z = 0.05 * Math.max(0, 1 - (nx * nx + ny * ny)) // 전체 돔 곡률
-  z += bump(x, y, 0, 0.02 * YS, 0.075 * XS, 0.24 * YS, 0.1) // 콧대
-  z += bump(x, y, 0, -0.03 * YS, 0.055 * XS, 0.05 * YS, 0.045) // 코끝
-  z += bump(x, y, 0.26 * XS, -0.05 * YS, 0.16 * XS, 0.17 * YS, 0.03) // 오른쪽 볼
-  z += bump(x, y, -0.26 * XS, -0.05 * YS, 0.16 * XS, 0.17 * YS, 0.03) // 왼쪽 볼
-  z += bump(x, y, 0, -0.29 * YS, 0.15 * XS, 0.045 * YS, 0.045) // 입술
-  z += bump(x, y, 0, -0.43 * YS, 0.13 * XS, 0.09 * YS, 0.05) // 턱
-  z += bump(x, y, 0.19 * XS, 0.07 * YS, 0.14 * XS, 0.1 * YS, -0.05) // 오른쪽 눈두덩(꺼짐)
-  z += bump(x, y, -0.19 * XS, 0.07 * YS, 0.14 * XS, 0.1 * YS, -0.05) // 왼쪽 눈두덩(꺼짐)
-  z += bump(x, y, 0, 0.32 * YS, 0.34 * XS, 0.1 * YS, 0.02) // 이마 능선
+/**
+ * 이목구비 돌출량 — 타원체 표면의 (x,y) 위치를 얼굴 정면 좌표처럼 취급해
+ * 가우시안 범프를 쌓는다. theta가 커질수록(관자놀이 쪽) 값이 자연히 0에
+ * 가까워지므로 별도 마스킹 없이도 이목구비는 정면 부근에만 나타난다.
+ * 값 자체가 크게 튜닝되어 있는데(실제 두상 비례보다 과장), point cloud로
+ * 형태를 읽으려면 정투영·저해상도 렌더링에서도 굴곡이 뚜렷해야 하기 때문이다.
+ */
+function faceBump(x: number, y: number): number {
+  let z = 0
+  z += bump(x, y, 0, 0.05, 0.07, 0.21, 0.22) // 콧대
+  z += bump(x, y, 0, -0.07, 0.052, 0.05, 0.19) // 코끝
+  z += bump(x, y, 0.05, -0.115, 0.03, 0.026, 0.05) // 오른쪽 콧방울
+  z += bump(x, y, -0.05, -0.115, 0.03, 0.026, 0.05) // 왼쪽 콧방울
+  z += bump(x, y, 0.235, -0.03, 0.15, 0.17, 0.06) // 오른쪽 볼
+  z += bump(x, y, -0.235, -0.03, 0.15, 0.17, 0.06) // 왼쪽 볼
+  z += bump(x, y, 0.035, -0.25, 0.032, 0.02, 0.045) // 윗입술 오른쪽(큐피드 활)
+  z += bump(x, y, -0.035, -0.25, 0.032, 0.02, 0.045) // 윗입술 왼쪽
+  z += bump(x, y, 0, -0.3, 0.105, 0.032, 0.065) // 아랫입술
+  z += bump(x, y, 0, -0.272, 0.115, 0.011, -0.035) // 입술 사이 골
+  z += bump(x, y, 0, -0.175, 0.022, 0.032, -0.028) // 인중
+  z += bump(x, y, 0, -0.43, 0.125, 0.095, 0.11) // 턱
+  z += bump(x, y, 0.16, 0.06, 0.135, 0.1, -0.12) // 오른쪽 눈두덩(꺼짐)
+  z += bump(x, y, -0.16, 0.06, 0.135, 0.1, -0.12) // 왼쪽 눈두덩(꺼짐)
+  z += bump(x, y, 0.16, 0.135, 0.14, 0.03, 0.045) // 오른쪽 눈썹
+  z += bump(x, y, -0.16, 0.135, 0.14, 0.03, 0.045) // 왼쪽 눈썹
+  z += bump(x, y, 0, 0.3, 0.32, 0.09, 0.035) // 이마 능선
   return z
 }
 
@@ -93,39 +70,56 @@ export class FaceCloud {
   readonly count: number
   readonly base: Float32Array
   readonly randoms: Float32Array
+  /** 각 점의 이목구비 굴곡량(부호 있음) — 정면 정투영에서도 밝기로 입체를 드러내는 채널 */
+  readonly features: Float32Array
   readonly positions: Float32Array
 
   private yaw = 0
   private pitch = 0
-  private targetYaw = 0
-  private targetPitch = 0
+  private targetYaw = IDLE_YAW
+  private targetPitch = IDLE_PITCH
   private idlePhase = Math.random() * Math.PI * 2
 
   constructor() {
     const pts: number[] = []
-    const minX = -RX - 0.02
-    const maxX = RX + 0.02
-    const minY = -RY - 0.02
-    const maxY = RY + 0.02
-    const cellW = (maxX - minX) / GRID_X
-    const cellH = (maxY - minY) / GRID_Y
+    const feats: number[] = []
 
-    for (let gy = 0; gy < GRID_Y; gy++) {
-      for (let gx = 0; gx < GRID_X; gx++) {
-        const x = minX + (gx + 0.5) * cellW + (Math.random() - 0.5) * cellW * 0.85
-        const y = minY + (gy + 0.5) * cellH + (Math.random() - 0.5) * cellH * 0.85
-        if (!inFace(x, y)) continue
+    for (let gp = 0; gp <= GRID_PHI; gp++) {
+      const v = gp / GRID_PHI
+      const phi = PHI_TOP + (PHI_BOTTOM - PHI_TOP) * v
+      // 위도 원의 반지름 — 위/아래로 갈수록 좁아져(정수리·턱) 자연스러운 두상 형태를 만든다
+      const ring = Math.cos(phi)
+      const y0 = RY * Math.sin(phi)
 
-        const keep = BASE_KEEP_PROB * noiseDensity(x, y) * eyeDensity(x, y)
-        if (Math.random() > keep) continue
+      for (let gt = 0; gt <= GRID_THETA; gt++) {
+        const u = gt / GRID_THETA
+        const theta = -THETA_MAX + THETA_MAX * 2 * u
 
-        const z = faceZ(x, y) + (Math.random() - 0.5) * DEPTH_NOISE_AMOUNT
-        pts.push(x, y, z)
+        const x0 = RX * ring * Math.sin(theta)
+        const z0 = RZ * ring * Math.cos(theta)
+
+        // 타원체의 실제 바깥 법선(비등방 반지름 보정)
+        const nx = x0 / (RX * RX)
+        const ny = y0 / (RY * RY)
+        const nz = z0 / (RZ * RZ)
+        const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1
+        const normX = nx / nLen
+        const normY = ny / nLen
+        const normZ = nz / nLen
+
+        const amp = faceBump(x0, y0)
+
+        // 격자가 너무 기계적으로 보이지 않도록 셀 크기 대비 작은 지터만 섞는다
+        const jitter = (Math.random() - 0.5) * 0.0035
+
+        pts.push(x0 + normX * amp + jitter, y0 + normY * amp + jitter, z0 + normZ * amp + jitter)
+        feats.push(amp)
       }
     }
 
     this.count = pts.length / 3
     this.base = Float32Array.from(pts)
+    this.features = Float32Array.from(feats)
     this.positions = new Float32Array(pts.length)
     this.randoms = new Float32Array(this.count)
     for (let i = 0; i < this.count; i++) this.randoms[i] = Math.random()
@@ -133,10 +127,10 @@ export class FaceCloud {
 
   /** mx, my는 -1..1 범위의 커서 좌표(이미 lerp되어 부드러워진 값) */
   setTarget(mx: number, my: number) {
-    // 부호는 centroid 픽셀 분석으로 재확인됨: 이 부호가 아니면(mx 그대로 쓰면)
-    // 점 뭉치가 커서 반대 방향으로 움직인다(반대로 보임)
-    this.targetYaw = -mx * YAW_MAX
-    this.targetPitch = my * PITCH_MAX
+    // 회전 행렬을 직접 손으로 풀어 검증된 부호: yaw는 mx와 같은 부호,
+    // pitch는 mx와 반대 부호여야 코(양의 z 돌출점)가 실제로 커서 쪽으로 이동한다.
+    this.targetYaw = IDLE_YAW + mx * YAW_MAX
+    this.targetPitch = IDLE_PITCH - my * PITCH_MAX
   }
 
   step(dt: number, time: number, ratio: number) {

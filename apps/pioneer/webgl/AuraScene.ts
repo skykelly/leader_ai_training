@@ -58,10 +58,11 @@ export class AuraScene {
         uMouse: { value: new THREE.Vector2(0, 0) },
         uResolution: { value: new THREE.Vector2(1, 1) },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
-        uBaseSize: { value: initialMode === 'flow' ? 3.2 : 2.5 },
-        uDepthBoost: { value: initialMode === 'flow' ? 2.2 : 4.5 },
+        uBaseSize: { value: initialMode === 'flow' ? 3.2 : 2.1 },
+        uDepthBoost: { value: initialMode === 'flow' ? 2.2 : 0.9 },
+        uFeatureBoost: { value: initialMode === 'flow' ? 0 : 13 },
         uMouseFx: { value: initialMode === 'flow' ? 1 : 0 },
-        uBreathAmount: { value: initialMode === 'flow' ? 1 : 0.4 },
+        uBreathAmount: { value: initialMode === 'flow' ? 1 : 0.18 },
         uColorA: { value: new THREE.Color(initColors[0]) },
         uColorB: { value: new THREE.Color(initColors[1]) },
         uColorC: { value: new THREE.Color(initColors[2]) },
@@ -124,17 +125,22 @@ export class AuraScene {
       overwrite: 'auto',
     })
     gsap.to(this.material.uniforms.uBaseSize, {
-      value: mode === 'flow' ? 3.2 : 2.5,
+      value: mode === 'flow' ? 3.2 : 2.1,
       duration: 0.4,
       overwrite: 'auto',
     })
     gsap.to(this.material.uniforms.uDepthBoost, {
-      value: mode === 'flow' ? 2.2 : 4.5,
+      value: mode === 'flow' ? 2.2 : 0.9,
+      duration: 0.4,
+      overwrite: 'auto',
+    })
+    gsap.to(this.material.uniforms.uFeatureBoost, {
+      value: mode === 'flow' ? 0 : 13,
       duration: 0.4,
       overwrite: 'auto',
     })
     gsap.to(this.material.uniforms.uBreathAmount, {
-      value: mode === 'flow' ? 1 : 0.4,
+      value: mode === 'flow' ? 1 : 0.18,
       duration: 0.4,
       overwrite: 'auto',
     })
@@ -148,7 +154,7 @@ export class AuraScene {
       this.allocateGeometry(this.flow.positions, this.flow.randoms)
     } else {
       this.face = new FaceCloud()
-      this.allocateGeometry(this.face.positions, this.face.randoms)
+      this.allocateGeometry(this.face.positions, this.face.randoms, this.face.features)
     }
   }
 
@@ -158,11 +164,13 @@ export class AuraScene {
     return Math.min(total, MAX_DOTS)
   }
 
-  private allocateGeometry(positions: Float32Array, randoms: Float32Array) {
+  private allocateGeometry(positions: Float32Array, randoms: Float32Array, features?: Float32Array) {
     this.geometry.dispose()
     this.geometry = new THREE.BufferGeometry()
     this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     this.geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1))
+    // flow 모드는 aFeature가 없다 — 셰이더에서 미바인딩 attribute는 0으로 읽혀 안전하다
+    if (features) this.geometry.setAttribute('aFeature', new THREE.BufferAttribute(features, 1))
     this.points.geometry = this.geometry
   }
 

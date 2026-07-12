@@ -6,6 +6,7 @@
 
 export const dotVertex = /* glsl */ `
 attribute float aRandom;
+attribute float aFeature; // 얼굴 모드 전용: 그 점의 이목구비 굴곡량(부호 있음). flow 모드에서는 항상 0
 
 varying float vGlow;
 varying float vMix;
@@ -18,6 +19,7 @@ uniform vec2  uResolution;
 uniform float uPixelRatio;
 uniform float uBaseSize;
 uniform float uDepthBoost; // 얼굴 모드에서 z(깊이)를 밝기/크기로 환산하는 계수
+uniform float uFeatureBoost; // aFeature를 밝기로 환산하는 계수 — 정투영이라 정면에서는 z만으론 굴곡이 안 보여 별도로 강조한다
 uniform float uMouseFx; // 커서 로컬 글로우/밀어내기 강도. flow=1, face=0(머리 회전이 반응을 대신함)
 uniform float uBreathAmount; // 노이즈 기반 밝기 요동의 비중. face 모드는 낮춰 depth 대비가 묻히지 않게 한다
 
@@ -75,6 +77,9 @@ void main() {
   // 얼굴 모드에서는 position.z(회전 후 깊이)가 코·볼처럼 튀어나온 점을
   // 더 밝고 크게, 눈두덩처럼 꺼진 점을 더 어둡게 만든다. flow 모드는 z=0이라 영향 없음
   glow += position.z * uDepthBoost;
+  // aFeature는 굴곡의 절대값(돌출·함몰 모두)을 밝기로 직접 끌어올린다 —
+  // 정투영에서는 회전이 없는 정면일 때 z만으로는 이목구비가 거의 안 보이기 때문
+  glow += abs(aFeature) * uFeatureBoost;
   vGlow = clamp(glow, 0.0, 2.4);
   vMix = n;
 
