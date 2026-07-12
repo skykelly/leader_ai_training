@@ -279,6 +279,36 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'dala',
+    title: 'LUMEN',
+    titleKo: '루멘 — WebGL 파티클 셰이프 모프',
+    tagline: '파티클 다중 셰이프 모프 · 카오스→전구→구체 · 스크롤 연동 색상 전환',
+    original: { name: 'Dala (Unseen Studio)', url: 'https://dala.craftedbygc.com/' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'Three.js', 'Custom GLSL', 'GSAP ScrollTrigger'],
+    accent: '#f5b942',
+    thumb: 'thumbs/dala.png',
+    summary:
+      'Unseen Studio(구 craftedbygc)가 워크플레이스 AI 검색 도구 Dala를 위해 만든 웹사이트(Awwwards Site of the Day)를 따라 만든 일곱 번째 학습 클론입니다. 원본의 핵심 테마인 "파편화된 지식"을 그대로 가져와, 흩어진 파티클 구름이 스크롤에 따라 전구(통찰) → 구체(공유된 전역 지식) 순서로 형태와 색을 함께 바꾸는 WebGL 파티클 시스템을 재현했습니다. 콘텐츠는 가상의 워크플레이스 AI 검색 도구 "LUMEN"으로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: 'WebGL 파티클 다중 셰이프 모프',
+        how: '카오스·전구·구체 세 형태의 정점을 모두 attribute로 하나의 지오메트리에 올려두고, `uMorph`(0..2) 유니폼 하나로 정점 셰이더에서 인접한 두 형태 사이를 GPU가 직접 보간합니다. 색상도 같은 진행도로 회색→호박색→청백색으로 함께 보간됩니다.',
+        file: 'apps/dala/webgl/particleShaders.ts',
+      },
+      {
+        name: '형태별 포인트 생성',
+        how: '카오스는 공 내부 균일 분포, 전구는 구 셸(유리)+원통(베이스)+지그재그(필라멘트) 조합, 구체는 매끈한 구 표면 샘플링으로 만듭니다. 세 세트 모두 같은 인덱스 수를 가져 정점 단위로 자연스럽게 자리를 옮깁니다.',
+        file: 'apps/dala/webgl/shapes.ts',
+      },
+      {
+        name: '스크롤 연동 모프 진행',
+        how: '히어로+스토리 구간 전체 스크롤 진행도를 목표 morph 값(0→2)으로 매핑하고, 매 프레임 부드럽게 lerp해 스크럽합니다.',
+        file: 'apps/dala/components/ParticleCanvas.vue',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {

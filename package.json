@@ -13,6 +13,7 @@
     "dev:madar": "npm run dev --workspace apps/madar",
     "dev:virya": "npm run dev --workspace apps/virya",
     "dev:monad": "npm run dev --workspace apps/monad",
+    "dev:dala": "npm run dev --workspace apps/dala",
     "generate:all": "npm run generate --workspaces"
   }
 }
