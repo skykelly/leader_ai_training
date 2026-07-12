@@ -1,0 +1,98 @@
+/* ==========================================================================
+   AEOLIA — Virya Energy 풍력 에너지 웹사이트풍 학습 클론.
+   맑은 하늘빛 배경 위에 짙은 그린-차콜 잉크, 앰버(태양)·틸(바람) 포인트 컬러.
+   다른 라이브러리들과 달리 라이트 테마 + 순수 SVG/DOM(WebGL 없음)으로
+   기법 다양성을 준다.
+   ========================================================================== */
+
+:root {
+  --bg: #f4f7f2;
+  --bg-soft: #e9efe6;
+  --ink: #10241d;
+  --ink-muted: rgba(16, 36, 29, 0.64);
+  --ink-faint: rgba(16, 36, 29, 0.34);
+  --line: rgba(16, 36, 29, 0.14);
+  --teal: #1f7a5c;
+  --amber: #f2a93b;
+  --sky: #4fa8d8;
+
+  --font-display: 'Space Grotesk Variable', 'Pretendard Variable', sans-serif;
+  --font-body: 'Pretendard Variable', 'Space Grotesk Variable', sans-serif;
+
+  --text-hero: clamp(2.6rem, 7vw, 6.2rem);
+  --text-xl: clamp(1.8rem, 3.4vw, 2.8rem);
+  --text-lg: clamp(1.2rem, 2vw, 1.5rem);
+  --text-md: clamp(1rem, 1.3vw, 1.1rem);
+  --text-sm: clamp(0.75rem, 1vw, 0.85rem);
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--amber);
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.container {
+  width: min(100% - 3rem, 72rem);
+  margin-inline: auto;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.split-mask .line {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

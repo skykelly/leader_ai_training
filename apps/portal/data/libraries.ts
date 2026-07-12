@@ -214,6 +214,41 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'virya',
+    title: 'AEOLIA',
+    titleKo: '에올리아 — 클립패스 아이리스 리빌과 SVG 일러스트',
+    tagline: '클립패스 히어로 리빌 · 무한 회전 SVG 일러스트 · 원형 게이지 차트 · 스크롤 타임라인',
+    original: { name: 'Virya Energy 풍력 에너지 웹사이트 (Studio Ruelle)', url: 'https://virya-energy.com/our-expertise/wind-energy/' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'GSAP ScrollTrigger', 'SVG', 'CSS clip-path'],
+    accent: '#1f7a5c',
+    thumb: 'thumbs/virya.png',
+    summary:
+      'Studio Ruelle가 만든 풍력 에너지 기업 Virya Energy의 웹사이트(Awwwards Honorable Mention)를 따라 만든 다섯 번째 학습 클론입니다. 작은 원형 창문이 스크롤에 맞춰 화면 전체로 열리며 풍력 발전 풍경을 드러내는 히어로로 시작해, 손으로 그린 터빈 일러스트와 원형 게이지 통계, 스크롤로 그려지는 타임라인까지 이어집니다. 다른 라이브러리와 달리 WebGL 없이 순수 SVG/DOM과 GSAP만으로 구현했습니다. 콘텐츠는 가상의 풍력 에너지 기업 "AEOLIA"로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: '클립패스 아이리스 히어로 리빌',
+        how: '섹션을 ScrollTrigger로 pin한 채 `clip-path: circle()`의 반지름을 9%→85%로 스크럽합니다. 작은 창문이 카메라 조리개처럼 열리며 뒤에 있던 장면이 점점 드러나고, 절반쯤 열렸을 때 헤드라인이 함께 페이드인합니다.',
+        file: 'apps/virya/components/HeroWindow.vue',
+      },
+      {
+        name: 'SVG 터빈 일러스트(무한 회전 + draw-on)',
+        how: '블레이드 `<g>`는 CSS keyframes로 항상 회전해 Lottie 루프 캐릭터 애니메이션과 같은 인상을 주고, 타워는 `stroke-dasharray`/`dashoffset`을 스크롤 진행도에 스크럽해 아래에서 위로 그려집니다.',
+        file: 'apps/virya/components/TurbineIllustration.vue',
+      },
+      {
+        name: '원형 게이지 데이터 시각화',
+        how: 'SVG 원의 둘레만큼 `stroke-dasharray`를 주고 `dashoffset`을 목표 비율까지 GSAP으로 트윈해 도넛형 진행률 차트를 그리며, 중앙 숫자를 같은 타이밍으로 카운트업합니다.',
+        file: 'apps/virya/components/GaugeStat.vue',
+      },
+      {
+        name: '스크롤 연동 세로 타임라인',
+        how: '세로선을 `scaleY(0)→1`로 스크럽하며 그리고, 각 마일스톤 항목은 화면에 들어올 때 개별 ScrollTrigger로 페이드+슬라이드인합니다.',
+        file: 'apps/virya/components/TimelineSection.vue',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {
