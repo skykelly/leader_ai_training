@@ -1,0 +1,190 @@
+import * as THREE from 'three'
+import gsap from 'gsap'
+
+const STREAK_COUNT = 900
+const FAR_Z = -42
+const NEAR_Z = 2.5
+const NEON_COLORS = ['#00f0ff', '#ff3df0', '#ffe14d']
+
+/**
+ * 워프 스피드 씬 — Sling Shot Intergalactic의 "빛보다 빠른 전송"이라는 브랜드
+ * 약속을 우주선 조종석에서 보는 하이퍼스페이스 점프처럼 시각화한다.
+ * 각 스트릭은 카메라를 향해 날아오는 짧은 선분(LineSegments)이며, 속도가
+ * 빨라질수록 선분이 길게 늘어나 모션 블러처럼 보인다. 스크롤 자체가 가속
+ * 페달이 되어, 스크롤하는 동안 워프 속도가 올라갔다가 서서히 가라앉는다.
+ * 그 사이를 몇 개의 와이어프레임 오브젝트(전송되는 데이터 패킷의 은유)가
+ * 천천히 떠다닌다.
+ */
+export class WarpScene {
+  private renderer: THREE.WebGLRenderer
+  private scene = new THREE.Scene()
+  private camera: THREE.PerspectiveCamera
+  private lineMaterial: THREE.LineBasicMaterial
+  private lineGeometry: THREE.BufferGeometry
+  private positions: Float32Array
+  private streakZ: Float32Array
+  private streakSpeed: Float32Array
+  private floaters: THREE.Mesh[] = []
+
+  private warp = 0.4
+  private targetWarp = 0.4
+  private targetMouse = new THREE.Vector2(0, 0)
+  private mouse = new THREE.Vector2(0, 0)
+
+  private tickerFn: () => void
+  private onResize: () => void
+  private onPointerMove: (e: PointerEvent) => void
+  private lastTime = 0
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
+    this.renderer.setClearColor(0x000000, 0)
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100)
+    this.camera.position.set(0, 0, 0)
+
+    // 스트릭 라인 — 정점 2개(뒤/앞)로 이루어진 선분 STREAK_COUNT개를 하나의 지오메트리로
+    this.positions = new Float32Array(STREAK_COUNT * 2 * 3)
+    this.streakZ = new Float32Array(STREAK_COUNT)
+    this.streakSpeed = new Float32Array(STREAK_COUNT)
+    const colors = new Float32Array(STREAK_COUNT * 2 * 3)
+    const palette = NEON_COLORS.map((c) => new THREE.Color(c))
+
+    for (let i = 0; i < STREAK_COUNT; i++) {
+      this.streakZ[i] = THREE.MathUtils.randFloat(FAR_Z, NEAR_Z)
+      this.streakSpeed[i] = THREE.MathUtils.randFloat(0.7, 1.4)
+      const c = palette[i % palette.length]
+      const ci = i * 2 * 3
+      colors[ci] = c.r
+      colors[ci + 1] = c.g
+      colors[ci + 2] = c.b
+      colors[ci + 3] = c.r
+      colors[ci + 4] = c.g
+      colors[ci + 5] = c.b
+    }
+
+    this.lineGeometry = new THREE.BufferGeometry()
+    this.lineGeometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3))
+    this.lineGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+    this.lineMaterial = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+
+    this.scene.add(new THREE.LineSegments(this.lineGeometry, this.lineMaterial))
+    this.assignStreakXY()
+
+    // 떠다니는 와이어프레임 오브젝트 — 전송 중인 데이터 패킷의 은유
+    const shapeGeos = [new THREE.IcosahedronGeometry(0.55, 0), new THREE.OctahedronGeometry(0.5, 0), new THREE.TetrahedronGeometry(0.6, 0)]
+    for (let i = 0; i < 6; i++) {
+      const geo = shapeGeos[i % shapeGeos.length]
+      const color = palette[i % palette.length]
+      const mat = new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.55 })
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.position.set(THREE.MathUtils.randFloatSpread(6), THREE.MathUtils.randFloatSpread(3.6), THREE.MathUtils.randFloat(-16, -4))
+      mesh.userData.spin = new THREE.Vector3(THREE.MathUtils.randFloat(0.1, 0.4), THREE.MathUtils.randFloat(0.1, 0.4), 0)
+      mesh.userData.driftPhase = Math.random() * Math.PI * 2
+      this.scene.add(mesh)
+      this.floaters.push(mesh)
+    }
+
+    this.onResize = () => this.resize()
+    this.onPointerMove = (e) => {
+      this.targetMouse.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1))
+    }
+    window.addEventListener('resize', this.onResize)
+    window.addEventListener('pointermove', this.onPointerMove)
+    this.resize()
+
+    this.tickerFn = () => {
+      const now = gsap.ticker.time
+      const dt = Math.min(now - this.lastTime, 0.05)
+      this.lastTime = now
+
+      this.mouse.lerp(this.targetMouse, 0.05)
+      this.warp += (this.targetWarp - this.warp) * Math.min(1, dt * 1.6)
+      // 부스트가 없을 때는 서서히 기본 순항 속도로 되돌아온다
+      this.targetWarp += (0.4 - this.targetWarp) * Math.min(1, dt * 0.6)
+
+      const speedScale = 6 + this.warp * 26
+      const trailScale = 0.4 + this.warp * 3.2
+
+      for (let i = 0; i < STREAK_COUNT; i++) {
+        this.streakZ[i] += dt * speedScale * this.streakSpeed[i]
+        if (this.streakZ[i] > NEAR_Z) {
+          this.streakZ[i] = FAR_Z
+        }
+        const ix = i * 2 * 3
+        const z = this.streakZ[i]
+        this.positions[ix + 2] = z
+        this.positions[ix + 5] = z - trailScale * this.streakSpeed[i]
+      }
+      ;(this.lineGeometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
+
+      this.camera.position.x = this.mouse.x * 0.5
+      this.camera.position.y = this.mouse.y * 0.3
+      this.camera.lookAt(0, 0, -10)
+
+      this.floaters.forEach((mesh) => {
+        const spin = mesh.userData.spin as THREE.Vector3
+        mesh.rotation.x += spin.x * dt
+        mesh.rotation.y += spin.y * dt
+        mesh.userData.driftPhase += dt * 0.3
+        mesh.position.y += Math.sin(mesh.userData.driftPhase) * 0.0015
+      })
+
+      this.renderer.render(this.scene, this.camera)
+    }
+    gsap.ticker.add(this.tickerFn)
+  }
+
+  private assignStreakXY() {
+    for (let i = 0; i < STREAK_COUNT; i++) {
+      const ix = i * 2 * 3
+      const angle = Math.random() * Math.PI * 2
+      const radius = Math.pow(Math.random(), 0.5) * 7
+      const x = Math.cos(angle) * radius
+      const y = Math.sin(angle) * radius
+      this.positions[ix] = x
+      this.positions[ix + 1] = y
+      this.positions[ix + 3] = x
+      this.positions[ix + 4] = y
+    }
+  }
+
+  /** 스크롤량에 비례해 워프 속도를 끌어올린다(스크롤이 곧 가속 페달) */
+  setBoost(value: number) {
+    this.targetWarp = THREE.MathUtils.clamp(value, 0, 1.6)
+  }
+
+  /** 섹션 진입 시 짧게 확 가속했다 가라앉는 펄스 */
+  pulse() {
+    this.targetWarp = Math.max(this.targetWarp, 1.4)
+  }
+
+  private resize() {
+    const w = window.innerWidth
+    const h = window.innerHeight
+    this.renderer.setSize(w, h)
+    this.camera.aspect = w / h
+    this.camera.updateProjectionMatrix()
+  }
+
+  dispose() {
+    gsap.ticker.remove(this.tickerFn)
+    window.removeEventListener('resize', this.onResize)
+    window.removeEventListener('pointermove', this.onPointerMove)
+    this.lineGeometry.dispose()
+    this.lineMaterial.dispose()
+    this.floaters.forEach((m) => {
+      m.geometry.dispose()
+      ;(m.material as THREE.Material).dispose()
+    })
+    this.renderer.dispose()
+  }
+}

@@ -309,6 +309,36 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'slingshot',
+    title: 'TACHYON',
+    titleKo: '타키온 — 워프 스피드 스트릭과 스크롤 가속',
+    tagline: '워프 스피드 스트릭 · 스크롤=가속 페달 · 떠다니는 와이어프레임 오브젝트 · 오버사이즈 타이포',
+    original: { name: 'Sling Shot Intergalactic (Buzzworthy Studio)', url: 'https://slingshotintergalactic.tv/' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'Three.js', 'GSAP ScrollTrigger'],
+    accent: '#00f0ff',
+    thumb: 'thumbs/slingshot.png',
+    summary:
+      'Buzzworthy Studio가 필름 데일리즈 글로벌 전송 서비스 Sling Shot Intergalactic을 위해 만든 웹사이트(Awwwards Honorable Mention)를 따라 만든 여덟 번째 학습 클론입니다. "빛보다 빠른 전송"이라는 브랜드 약속을 우주선 조종석에서 보는 하이퍼스페이스 점프처럼 시각화했습니다. 스크롤 속도 자체가 가속 페달이 되어, 빠르게 스크롤할수록 화면을 가로지르는 네온 스트릭이 길고 빠르게 늘어납니다. 콘텐츠는 가상의 필름 데일리즈 전송 서비스 "TACHYON"으로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: '워프 스피드 스트릭',
+        how: '각 스트릭을 카메라를 향해 날아오는 짧은 선분(LineSegments)으로 그리고, 속도가 빨라질수록 선분 길이(trail)를 늘려 모션 블러처럼 보이게 합니다. 화면을 지나치면 다시 먼 곳에서 리스폰합니다.',
+        file: 'apps/slingshot/webgl/WarpScene.ts',
+      },
+      {
+        name: '스크롤 = 가속 페달',
+        how: '`ScrollTrigger.getVelocity()`로 실시간 스크롤 속도를 측정해 워프 강도로 매핑합니다. 빠르게 스크롤할수록 화면이 가속하다, 멈추면 서서히 순항 속도로 가라앉습니다.',
+        file: 'apps/slingshot/components/WarpCanvas.vue',
+      },
+      {
+        name: '떠다니는 와이어프레임 오브젝트 + 섹션 진입 부스트',
+        how: '전송 중인 데이터 패킷의 은유로 이십면체·팔면체·사면체 와이어프레임을 배치해 각자 다른 속도로 자전·부유시키고, 기능 섹션이 화면에 들어올 때 워프 속도를 짧게 최고조로 끌어올리는 펄스를 줍니다.',
+        file: 'apps/slingshot/webgl/WarpScene.ts',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {

@@ -17,6 +17,7 @@
 | 05 | AEOLIA | [Virya Energy 풍력 에너지](https://virya-energy.com/our-expertise/wind-energy/) (Studio Ruelle) | 클립패스 아이리스 히어로 리빌, 무한 회전 SVG 일러스트, 원형 게이지 차트, 스크롤 타임라인 | [`apps/virya`](apps/virya) → `/virya/` |
 | 06 | CONDUIT | [Monad 보안 데이터 파이프라인](https://www.monad.com/) | SVG 모션패스 파티클, 스크롤 핀 파이프라인 다이어그램, 노이즈→시그널 스크럽 모핑 | [`apps/monad`](apps/monad) → `/monad/` |
 | 07 | LUMEN | [Dala](https://dala.craftedbygc.com/) (Unseen Studio) | WebGL 파티클 다중 셰이프 모프(카오스→전구→구체), 스크롤 연동 색상 전환 | [`apps/dala`](apps/dala) → `/dala/` |
+| 08 | TACHYON | [Sling Shot Intergalactic](https://slingshotintergalactic.tv/) (Buzzworthy Studio) | 워프 스피드 스트릭, 스크롤=가속 페달, 떠다니는 와이어프레임 오브젝트 | [`apps/slingshot`](apps/slingshot) → `/slingshot/` |
 
 기법별 상세 설명은 포털의 라이브러리 상세 페이지(데이터 소스: [`apps/portal/data/libraries.ts`](apps/portal/data/libraries.ts))에 있습니다.
 
@@ -31,7 +32,8 @@ apps/
 ├── madar/     # 라이브러리 #4
 ├── virya/     # 라이브러리 #5
 ├── monad/     # 라이브러리 #6
-└── dala/      # 라이브러리 #7
+├── dala/      # 라이브러리 #7
+└── slingshot/ # 라이브러리 #8
 scripts/build-dist.sh   # 전체 앱 빌드 → dist/ 조립 (CI와 로컬 공용)
 ```
 
@@ -50,6 +52,7 @@ npm run dev:madar     # http://localhost:3004
 npm run dev:virya     # http://localhost:3005
 npm run dev:monad     # http://localhost:3006
 npm run dev:dala      # http://localhost:3007
+npm run dev:slingshot # http://localhost:3008
 
 # 배포와 동일한 통합 빌드 (dist/ 생성)
 bash scripts/build-dist.sh
