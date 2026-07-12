@@ -9,6 +9,8 @@
     "dev:pioneer": "npm run dev --workspace apps/pioneer",
     "dev:waaark": "npm run dev --workspace apps/waaark",
     "dev:portal": "npm run dev --workspace apps/portal",
+    "dev:lusion": "npm run dev --workspace apps/lusion",
+    "dev:madar": "npm run dev --workspace apps/madar",
     "generate:all": "npm run generate --workspaces"
   }
 }

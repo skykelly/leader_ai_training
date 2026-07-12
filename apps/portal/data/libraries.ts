@@ -174,6 +174,46 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'madar',
+    title: 'VECTOR',
+    titleKo: '벡터 — 경로(path) 3D 스크롤 카메라',
+    tagline: '경로 3D 모티프 · 스크롤 연동 카메라 돌리 · 둥근 모서리·블러 카드 · 숫자 카운트업',
+    original: { name: 'Madar 물류 플랫폼 웹사이트 (Vide Infra)', url: 'https://madarplatform.com/en' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'Three.js', 'Custom GLSL', 'GSAP ScrollTrigger'],
+    accent: '#ff6340',
+    thumb: 'thumbs/madar.png',
+    summary:
+      'Vide Infra가 만든 물류 플랫폼 Madar의 웹사이트(Awwwards·CSSDA·FWA Site of the Day)를 따라 만든 네 번째 학습 클론입니다. 네이비→코럴로 그라디언트하는 3D 경로(path)가 페이지 전체를 관통하고, 스크롤 진행도가 곧 경로 위 카메라의 위치가 되어 마치 드론이 물류 노선을 따라가듯 화면이 흘러갑니다. 각 정류장(웨이포인트)은 해당 섹션이 화면에 들어올 때 밝게 펄스합니다. 콘텐츠는 가상의 물류 플랫폼 "VECTOR"로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: '경로(path) 3D 모티프 + 스크롤 카메라 돌리',
+        how: 'CatmullRomCurve3로 웨이포인트를 잇는 튜브 지오메트리를 만들고, 문서 전체 높이에 건 마스터 ScrollTrigger의 진행도(0..1)를 카메라가 경로 위를 이동하는 위치(getPointAt)로 직접 매핑합니다. 카메라는 경로 중심선이 아니라 살짝 띄운 별도의 궤도를 따라가며 경로 자체를 바깥에서 내려다봅니다.',
+        file: 'apps/madar/webgl/JourneyScene.ts',
+      },
+      {
+        name: '네이비→코럴 그라디언트 + 이동하는 빛 파동',
+        how: '튜브의 UV.x(경로 길이 방향)로 두 브랜드 컬러를 보간하고, 사인파 밝기 밴드가 시간에 따라 진행 방향으로 흘러 화물이 경로를 이동하는 느낌을 만듭니다. 카메라가 위치한 구간은 별도로 더 밝혀 "지금 여기"를 표시합니다.',
+        file: 'apps/madar/webgl/journeyShaders.ts',
+      },
+      {
+        name: '웨이포인트 노드 발광 + 섹션 연동 펄스',
+        how: '각 정류장에 core 메시와 BackSide additive 글로우 셸(lusion과 동일 기법)을 두고, 해당 섹션이 ScrollTrigger로 화면에 들어오면 그 노드만 GSAP으로 밝기·스케일을 펄스시켜 "도착했다"는 피드백을 줍니다.',
+        file: 'apps/madar/webgl/JourneyScene.ts',
+      },
+      {
+        name: '둥근 모서리 + 블러 카드(glassmorphism)',
+        how: '반투명 배경에 backdrop-filter: blur()와 큰 border-radius를 적용한 `.glass` 유틸리티로 통계 패널을 유리처럼 표현합니다. Madar 원본의 시그니처인 "일관된 둥근 모서리·블러" 마이크로인터랙션을 재현했습니다.',
+        file: 'apps/madar/components/StatsSection.vue',
+      },
+      {
+        name: '숫자 카운트업',
+        how: '통계 섹션 진입 시 GSAP proxy 객체를 0에서 목표값으로 트윈하며 매 프레임 텍스트를 갱신해 숫자가 올라가는 연출을 만듭니다.',
+        file: 'apps/madar/components/StatsSection.vue',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {
