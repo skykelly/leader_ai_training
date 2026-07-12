@@ -134,6 +134,46 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'lusion',
+    title: 'COGENT',
+    titleKo: '코젠트 — 실시간 3D 셰이더 히어로와 스크롤 컬러 모핑',
+    tagline: '노이즈 변위 셰이더 · 프레넬 글로우 · 후처리 없는 bloom · 스크롤 팔레트 모핑',
+    original: { name: 'Lusion — Devin AI 웹사이트', url: 'https://archive-devin-ai.lusion.co' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'Three.js', 'Custom GLSL', 'GSAP ScrollTrigger'],
+    accent: '#6df0c2',
+    thumb: 'thumbs/lusion.png',
+    summary:
+      '3D·인터랙티브 웹 스튜디오 Lusion이 Cognition의 AI 소프트웨어 엔지니어 "Devin"을 위해 만든 웹사이트를 따라 만든 학습 클론입니다. 실시간으로 표면이 일렁이는 발광 구체가 페이지 내내 화면 중심에 머무르며, 스크롤로 진입하는 섹션마다 색과 크기가 모핑됩니다. 콘텐츠는 가상의 AI 코딩 에이전트 "COGENT"로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: '노이즈 변위 발광 구체(synthetic core)',
+        how: 'IcosahedronGeometry의 정점을 버텍스 셰이더에서 3D simplex noise로 법선 방향으로 밀어내 매 프레임 유기적으로 일렁이게 합니다. 프래그먼트 셰이더는 프레넬(시야각 기반) 항으로 가장자리를 밝혀 발광하는 느낌을 만듭니다.',
+        file: 'apps/lusion/webgl/coreShaders.ts',
+      },
+      {
+        name: '후처리 없는 bloom(글로우 셸)',
+        how: 'EffectComposer 없이, core보다 살짝 큰 반투명 구를 BackSide + AdditiveBlending으로 뒤에 겹쳐 그립니다. 프레넬 알파로 가장자리만 빛나 저비용으로 bloom을 흉내냅니다.',
+        file: 'apps/lusion/webgl/CoreScene.ts',
+      },
+      {
+        name: '스크롤 섹션 → 색/스케일 모핑',
+        how: 'ScrollTrigger가 섹션 진입을 감지하면 core/glow 색상 uniform과 그룹 스케일을 GSAP으로 lerp합니다. 전역 캔버스 하나가 페이지 전체에서 유지되어, 스크롤이 곧 "장면 전환"처럼 느껴집니다.',
+        file: 'apps/lusion/components/CapabilitySection.vue',
+      },
+      {
+        name: '마우스 패럴랙스 회전',
+        how: '커서 위치를 lerp해 오브젝트 그룹의 회전에 자동 회전값과 더해 합성합니다. 자동 회전은 계속 누적되고, 마우스 오프셋은 그 위에 얹히는 방식이라 회전이 끊기지 않습니다.',
+        file: 'apps/lusion/webgl/CoreScene.ts',
+      },
+      {
+        name: '별 필드 배경',
+        how: '구면 좌표로 분포시킨 저밀도 THREE.Points를 additive blending으로 얹어 깊이감을 더합니다. 오브젝트보다 느리게 회전해 패럴랙스를 만듭니다.',
+        file: 'apps/lusion/webgl/CoreScene.ts',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {

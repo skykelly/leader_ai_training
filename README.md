@@ -12,6 +12,7 @@
 |---|---|---|---|---|
 | 01 | Prepare to Pioneer | [preparetopioneer.com](https://preparetopioneer.com/) (DEPT) | WebGL dot 필드, Lenis+ScrollTrigger 핀/스크럽, SplitText 리빌, 규칙 기반 진단 플로우 | [`apps/pioneer`](apps/pioneer) → `/pioneer/` |
 | 02 | Wave Study | [waaark.com](https://waaark.com/) | SVG 웨이브/리퀴드 전환(path 모핑), GSAP Observer 풀페이지 슬라이드, 일러스트 드로우온 | [`apps/waaark`](apps/waaark) → `/waaark/` |
+| 03 | COGENT | [Lusion — Devin AI](https://archive-devin-ai.lusion.co) | 노이즈 변위 발광 구체(3D simplex), 후처리 없는 bloom(글로우 셸), 스크롤 연동 색/스케일 모핑 | [`apps/lusion`](apps/lusion) → `/lusion/` |
 
 기법별 상세 설명은 포털의 라이브러리 상세 페이지(데이터 소스: [`apps/portal/data/libraries.ts`](apps/portal/data/libraries.ts))에 있습니다.
 

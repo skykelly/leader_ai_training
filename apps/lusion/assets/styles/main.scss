@@ -1,0 +1,95 @@
+/* ==========================================================================
+   COGENT — Lusion 스튜디오풍 실시간 3D 셰이더 히어로 학습 클론.
+   딥 블랙 배경 위에 발광하는 synthetic core가 중심이 되는 미니멀 팔레트.
+   ========================================================================== */
+
+:root {
+  --bg: #07070a;
+  --bg-soft: #0d0e13;
+  --ink: #f2f3f5;
+  --ink-muted: rgba(242, 243, 245, 0.62);
+  --ink-faint: rgba(242, 243, 245, 0.32);
+  --line: rgba(242, 243, 245, 0.12);
+  --core: #6df0c2;
+  --core-b: #7c9bff;
+
+  --font-display: 'Space Grotesk Variable', 'Pretendard Variable', sans-serif;
+  --font-body: 'Pretendard Variable', 'Space Grotesk Variable', sans-serif;
+
+  --text-hero: clamp(2.6rem, 7.5vw, 6.8rem);
+  --text-xl: clamp(1.8rem, 3.6vw, 3rem);
+  --text-lg: clamp(1.2rem, 2vw, 1.5rem);
+  --text-md: clamp(1rem, 1.3vw, 1.1rem);
+  --text-sm: clamp(0.75rem, 1vw, 0.85rem);
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--core);
+  color: var(--bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.container {
+  width: min(100% - 3rem, 78rem);
+  margin-inline: auto;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.split-mask .line {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
