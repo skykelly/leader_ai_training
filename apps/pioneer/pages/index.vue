@@ -17,6 +17,9 @@
 <script setup lang="ts">
 import type { PaletteName } from '~/webgl/palettes'
 
+const aura = useAura()
+onMounted(() => aura.setMode('flow'))
+
 const narrative: {
   eyebrow: string
   title: string

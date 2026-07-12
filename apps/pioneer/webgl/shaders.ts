@@ -17,6 +17,9 @@ uniform vec2  uMouse;       // -1..1, lerp된 커서 위치
 uniform vec2  uResolution;
 uniform float uPixelRatio;
 uniform float uBaseSize;
+uniform float uDepthBoost; // 얼굴 모드에서 z(깊이)를 밝기/크기로 환산하는 계수
+uniform float uMouseFx; // 커서 로컬 글로우/밀어내기 강도. flow=1, face=0(머리 회전이 반응을 대신함)
+uniform float uBreathAmount; // 노이즈 기반 밝기 요동의 비중. face 모드는 낮춰 depth 대비가 묻히지 않게 한다
 
 // --- simplex noise (Ashima / IQ 계열 표준 구현) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -65,10 +68,13 @@ void main() {
 
   // 유기적인 "숨쉬기": 노이즈 위상에 점마다 랜덤 오프셋을 주어 파도치듯 밝기가 변한다
   float n = fbm(pos * 1.3 + vec2(uTime * 0.06, -uTime * 0.04) + uScroll * 2.2 + aRandom * 8.0);
-  float mouseInfluence = smoothstep(0.45, 0.0, distToMouse);
+  float mouseInfluence = smoothstep(0.45, 0.0, distToMouse) * uMouseFx;
 
   float pulse = 0.35 + 0.65 * (0.5 + 0.5 * sin(n * 3.0 + aRandom * 6.2831 + uTime * 0.6));
-  float glow = pulse * uIntensity + mouseInfluence * 1.5;
+  float glow = mix(0.6, pulse, uBreathAmount) * uIntensity + mouseInfluence * 1.5;
+  // 얼굴 모드에서는 position.z(회전 후 깊이)가 코·볼처럼 튀어나온 점을
+  // 더 밝고 크게, 눈두덩처럼 꺼진 점을 더 어둡게 만든다. flow 모드는 z=0이라 영향 없음
+  glow += position.z * uDepthBoost;
   vGlow = clamp(glow, 0.0, 2.4);
   vMix = n;
 

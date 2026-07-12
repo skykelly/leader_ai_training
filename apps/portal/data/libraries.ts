@@ -28,18 +28,28 @@ export const libraries: Library[] = [
     slug: 'pioneer',
     title: 'Prepare to Pioneer',
     titleKo: '파이오니어 — 인터랙티브 dot 필드와 스크롤 내러티브',
-    tagline: 'WebGL dot 필드 · 핀 고정 스크럽 · AI 점술 콘셉트 진단 플로우',
+    tagline: '흐르는 dot 필드 · 커서를 바라보는 얼굴 point cloud · 핀 고정 스크럽',
     original: { name: 'preparetopioneer.com (DEPT)', url: 'https://preparetopioneer.com/' },
     year: '2026.07',
     stack: ['Nuxt 3', 'GSAP ScrollTrigger', 'Three.js', 'Lenis', 'SplitText'],
     accent: '#8b5cf6',
     thumb: 'thumbs/pioneer.png',
     summary:
-      'DEPT 에이전시의 AI 캠페인 사이트를 따라 만든 첫 번째 학습 클론입니다. 커서에 반응하는 WebGL dot 필드 위에서 스크롤 내러티브가 진행되고, 질문에 답하면 파이오니어 유형을 알려주는 진단 경험까지 재현했습니다. 원본은 Nuxt.js와 DEPT 자체 WebGL 라이브러리(AstroGL)로 제작되었습니다.',
+      'DEPT 에이전시의 AI 캠페인 사이트를 따라 만든 첫 번째 학습 클론입니다. 홈에서는 노이즈 흐름장을 따라 실제로 이동하는 dot 필드가 배경이 되고, 진단 페이지(/experience)에서는 파라메트릭으로 조형한 얼굴 point cloud가 커서 방향으로 고개를 돌립니다. 두 모드 모두 같은 THREE.Points 파이프라인을 공유하며, 질문에 답하면 파이오니어 유형에 맞춰 팔레트가 모핑됩니다. 원본은 Nuxt.js와 DEPT 자체 WebGL 라이브러리(AstroGL)로 제작되었습니다.',
     techniques: [
       {
-        name: '인터랙티브 dot 필드 배경',
-        how: 'THREE.Points로 격자 형태의 점들을 렌더링하고, 점마다 simplex noise로 밝기가 숨쉬듯 변합니다. 커서 근처의 점은 밝아지며 살짝 밀려나고, 섹션·퀴즈 답변에 따라 색 팔레트 uniform이 GSAP으로 lerp 전환됩니다.',
+        name: '흐름장(flow field) dot 배경',
+        how: '격자에 고정하지 않고, 각 점을 CPU에서 매 프레임 적분한다. simplex noise(x,y,t)를 각도로 해석해 그 방향으로 전진시키는 표준 flow field 기법 — 점들이 실제로 유체처럼 화면을 표류하다 경계에서 반대편으로 랩어라운드된다.',
+        file: 'apps/pioneer/webgl/FlowField.ts',
+      },
+      {
+        name: '얼굴 3D point cloud + head tracking',
+        how: '외부 3D 모델 없이, 타원 실루엣 안에서 격자 샘플링한 뒤 가우시안 범프를 합성해 코·볼·입술·턱의 깊이(z)를 만들고 눈 위치는 점을 비워 구멍으로 읽히게 한다. 커서 좌표를 yaw/pitch 목표각으로 lerp해 매 프레임 얼굴 전체를 회전시키고, 회전 후 z값을 밝기·크기에 되먹여 가까운 쪽은 밝고 큼직하게, 먼 쪽은 옆모습처럼 흐리게 만들어 입체감을 낸다.',
+        file: 'apps/pioneer/webgl/FaceCloud.ts',
+      },
+      {
+        name: 'dot 필드 셰이더(공유)',
+        how: 'THREE.Points 하나를 flow/face 두 "드라이버"가 번갈아 채운다. 점마다 simplex noise로 밝기가 숨쉬듯 변하고, 커서 근처 글로우·밀어내기는 flow 모드에만(uMouseFx) 적용해 얼굴 모드에서는 head-tracking 회전만이 마우스 반응을 담당하도록 분리했다.',
         file: 'apps/pioneer/webgl/AuraScene.ts',
       },
       {

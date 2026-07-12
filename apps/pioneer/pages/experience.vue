@@ -28,7 +28,11 @@ const scores = ref<Record<PersonaId, number>>({ visionary: 0, explorer: 0, catal
 const result = ref<Persona | null>(null)
 const aura = useAura()
 
-onMounted(() => aura.setIntensity(1.1))
+onMounted(() => {
+  aura.setMode('face')
+  aura.setPalette('hero', 0.6)
+  aura.setIntensity(1.1)
+})
 
 function start() {
   phase.value = 'question'
