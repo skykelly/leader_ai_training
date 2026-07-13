@@ -339,6 +339,36 @@ export const libraries: Library[] = [
       },
     ],
   },
+  {
+    slug: 'dayos',
+    title: 'NEXUS',
+    titleKo: '넥서스 — 3D 오빗 링과 스크롤 카메라 돌리',
+    tagline: '3D 오빗 링 · 스크롤 연동 링 순차 리빌 · AI 코어 글로우 · 오버사이즈 콘덴스드 타이포',
+    original: { name: 'Dayos (Times Two Design)', url: 'https://www.dayos.com/' },
+    year: '2026.07',
+    stack: ['Nuxt 3', 'Three.js', 'Custom GLSL', 'GSAP ScrollTrigger'],
+    accent: '#c8ff4d',
+    thumb: 'thumbs/dayos.png',
+    summary:
+      'Times Two Design이 멀티클라우드 AI 통합 플랫폼 Dayos를 위해 만든 웹사이트(Awwwards Site of the Day)를 따라 만든 아홉 번째 학습 클론입니다. "160개가 넘는 업무 툴을 하나의 AI로 통합한다"는 핵심 메시지를, 통합 아이콘들이 AI 코어를 중심으로 서로 다른 반지름·기울기로 도는 3D 오빗 링으로 형상화했습니다. 스크롤할수록 안쪽 링부터 순서대로 나타나며 카메라가 코어로 다가갑니다. 콘텐츠는 가상의 멀티클라우드 AI 통합 플랫폼 "NEXUS"로 자체 제작했습니다.',
+    techniques: [
+      {
+        name: '3D 오빗 링',
+        how: '통합 아이콘 노드를 하나의 Points로 묶고, 반지름·기울기·시작각·속도를 attribute로 실어 정점 셰이더가 매 프레임 궤도 위 위치를 직접 계산합니다(CPU 루프 없음).',
+        file: 'apps/dayos/webgl/orbitShaders.ts',
+      },
+      {
+        name: '스크롤 연동 링 순차 리빌 + 카메라 돌리',
+        how: '히어로 스크롤 러너웨이(sticky) 진행도를 안쪽 링부터 순서대로 나타나는 opacity와 카메라 z 위치(멀리→가까이)로 매핑합니다.',
+        file: 'apps/dayos/components/OrbitCanvas.vue',
+      },
+      {
+        name: 'AI 코어 글로우 셸',
+        how: 'lusion·madar와 동일한 프레넬 기반 BackSide+Additive 글로우 기법으로 코어 발광을 저비용으로 표현합니다.',
+        file: 'apps/dayos/webgl/orbitShaders.ts',
+      },
+    ],
+  },
 ]
 
 export function getLibrary(slug: string) {

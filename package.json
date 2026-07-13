@@ -15,6 +15,7 @@
     "dev:monad": "npm run dev --workspace apps/monad",
     "dev:dala": "npm run dev --workspace apps/dala",
     "dev:slingshot": "npm run dev --workspace apps/slingshot",
+    "dev:dayos": "npm run dev --workspace apps/dayos",
     "generate:all": "npm run generate --workspaces"
   }
 }

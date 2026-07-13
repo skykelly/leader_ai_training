@@ -1,0 +1,98 @@
+/* ==========================================================================
+   NEXUS — Dayos(Times Two Design) 웹사이트풍 미니멀 3D 오빗 학습 클론.
+   블랙·라이트그레이의 절제된 팔레트에 라임 하나만 포인트로 태운다.
+   오버사이즈 콘덴스드 타이포(음수 letter-spacing + 대문자)로 원본의
+   Suisse Heavy/Condensed 인상을 재현한다.
+   ========================================================================== */
+
+:root {
+  --bg: #0b0b0c;
+  --bg-soft: #151517;
+  --ink: #f4f4f2;
+  --ink-muted: rgba(244, 244, 242, 0.6);
+  --ink-faint: rgba(244, 244, 242, 0.3);
+  --line: rgba(244, 244, 242, 0.14);
+  --core: #c8ff4d;
+  --core-b: #9aa0a6;
+
+  --font-display: 'Space Grotesk Variable', 'Pretendard Variable', sans-serif;
+  --font-body: 'Pretendard Variable', 'Space Grotesk Variable', sans-serif;
+
+  --text-hero: clamp(3rem, 8.6vw, 7.6rem);
+  --text-xl: clamp(1.9rem, 3.8vw, 3rem);
+  --text-lg: clamp(1.2rem, 2vw, 1.5rem);
+  --text-md: clamp(1rem, 1.3vw, 1.1rem);
+  --text-sm: clamp(0.75rem, 1vw, 0.85rem);
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--core);
+  color: var(--bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.container {
+  width: min(100% - 3rem, 76rem);
+  margin-inline: auto;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  line-height: 0.98;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.split-mask .line {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
