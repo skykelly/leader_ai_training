@@ -23,6 +23,9 @@ export const features: Feature[] = [
   },
 ]
 
+/** 경로 위 6개 웨이포인트의 정류장 라벨 — JourneyScene의 WAYPOINTS 순서와 1:1 대응 */
+export const waypointLabels = ['Origin', 'Visibility', 'Automation', 'Marketplace', 'Numbers', 'Departure'] as const
+
 export interface Stat {
   value: number
   suffix: string

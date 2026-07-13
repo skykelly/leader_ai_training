@@ -63,6 +63,36 @@ void main() {
 }
 `
 
+// 노드→코어 연결 빔 — madar의 튜브 빛 파동 기법을 직선 빔으로 재사용.
+// aT(0=코어, 1=노드)를 따라 사인 파동 밴드가 시간이 갈수록 코어 쪽으로 흘러,
+// "통합 데이터가 코어로 모인다"는 방향성을 만든다.
+export const beamVertex = /* glsl */ `
+attribute float aT;
+varying float vT;
+
+void main() {
+  vT = aT;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+export const beamFragment = /* glsl */ `
+precision highp float;
+
+uniform vec3 uColor;
+uniform float uTime;
+uniform float uOpacity;
+
+varying float vT;
+
+void main() {
+  // vT*20 + uTime*4 : 위상이 같은 지점이 시간에 따라 vT 감소 방향(코어 쪽)으로 이동
+  float pulse = pow(0.5 + 0.5 * sin(vT * 20.0 + uTime * 4.0), 8.0);
+  float alpha = (0.08 + pulse * 0.85) * uOpacity;
+  gl_FragColor = vec4(uColor, alpha);
+}
+`
+
 // AI 코어 글로우 셸 — lusion/madar와 동일한 프레넬 기반 저비용 bloom 기법
 export const glowVertex = /* glsl */ `
 varying vec3 vNormal;

@@ -170,6 +170,29 @@ export class JourneyScene {
     this.targetProgress = THREE.MathUtils.clamp(t, 0, 1)
   }
 
+  /** 현재 활성 웨이포인트 인덱스 (JourneyCanvas의 라벨 레이어가 읽는다) */
+  get activeIndex() {
+    return this.activeNode
+  }
+
+  /**
+   * 각 웨이포인트의 화면 좌표(px)와 가시성 — 3D 좌표를 카메라로 투영해
+   * HTML 라벨 오버레이가 따라붙을 수 있게 한다.
+   */
+  getLabelData(): { x: number; y: number; visible: boolean }[] {
+    const w = window.innerWidth
+    const h = window.innerHeight
+    return WAYPOINTS.map((p) => {
+      const ndc = p.clone().project(this.camera)
+      return {
+        x: ((ndc.x + 1) / 2) * w,
+        y: ((1 - ndc.y) / 2) * h,
+        // z>=1이면 카메라 뒤/원거리 클립 밖 — 라벨을 숨긴다
+        visible: ndc.z < 1 && ndc.z > -1,
+      }
+    })
+  }
+
   /** 섹션이 화면에 들어오면 해당 웨이포인트 노드를 펄스+밝기로 강조한다 */
   setActiveNode(index: number) {
     if (index === this.activeNode) return

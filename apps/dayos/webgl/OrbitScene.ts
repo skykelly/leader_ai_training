@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import gsap from 'gsap'
-import { ringVertex, ringFragment, glowVertex, glowFragment } from './orbitShaders'
+import { ringVertex, ringFragment, glowVertex, glowFragment, beamVertex, beamFragment } from './orbitShaders'
 
 const CORE_COLOR = '#c8ff4d'
 const RING_COUNTS = [8, 11, 14]
@@ -21,6 +21,8 @@ export class OrbitScene {
   private group = new THREE.Group()
   private ringMaterial: THREE.ShaderMaterial
   private glowMaterial: THREE.ShaderMaterial
+  private orbitLineMats: THREE.LineBasicMaterial[] = []
+  private beams: { mat: THREE.ShaderMaterial; positions: Float32Array; attr: THREE.BufferAttribute; ring: number; phase: number }[] = []
 
   private targetMouse = new THREE.Vector2(0, 0)
   private mouse = new THREE.Vector2(0, 0)
@@ -110,6 +112,46 @@ export class OrbitScene {
     })
     this.group.add(new THREE.Points(ringGeo, this.ringMaterial))
 
+    // 타원 궤도선 — ringVertex 셰이더와 정확히 같은 수식으로 점열을 만들어야
+    // 노드가 선 위에 올라탄다 (수식이 어긋나면 검증 스크린샷에서 즉시 드러남)
+    const BEAM_SEGMENTS = 24
+    RING_RADII.forEach((r, ring) => {
+      const incline = RING_INCLINES[ring]
+      const pts: THREE.Vector3[] = []
+      for (let s = 0; s < 128; s++) {
+        const a = (s / 128) * Math.PI * 2
+        pts.push(new THREE.Vector3(r * Math.cos(a), -r * Math.sin(a) * Math.sin(incline), r * Math.sin(a) * Math.cos(incline)))
+      }
+      const lineMat = new THREE.LineBasicMaterial({ color: CORE_COLOR, transparent: true, opacity: 0 })
+      this.orbitLineMats.push(lineMat)
+      this.group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
+
+      // 링당 대표 노드 1개에서 코어로 향하는 연결 빔 — 파동이 코어 쪽으로 흐른다
+      const beamPositions = new Float32Array((BEAM_SEGMENTS + 1) * 3)
+      const ts = new Float32Array(BEAM_SEGMENTS + 1)
+      for (let s = 0; s <= BEAM_SEGMENTS; s++) ts[s] = s / BEAM_SEGMENTS
+      const beamGeo = new THREE.BufferGeometry()
+      const posAttr = new THREE.BufferAttribute(beamPositions, 3)
+      beamGeo.setAttribute('position', posAttr)
+      beamGeo.setAttribute('aT', new THREE.BufferAttribute(ts, 1))
+      const beamMat = new THREE.ShaderMaterial({
+        vertexShader: beamVertex,
+        fragmentShader: beamFragment,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: { value: 0 },
+          uColor: { value: new THREE.Color(CORE_COLOR) },
+          uOpacity: { value: 0 },
+        },
+      })
+      this.group.add(new THREE.Line(beamGeo, beamMat))
+      // 대표 노드 = 이 링의 첫 번째 노드와 같은 위상(phases 배열의 링 시작 인덱스)
+      const startIdx = RING_COUNTS.slice(0, ring).reduce((a, b) => a + b, 0)
+      this.beams.push({ mat: beamMat, positions: beamPositions, attr: posAttr, ring, phase: phases[startIdx] })
+    })
+
     this.scene.add(this.group)
 
     this.onResize = () => this.resize()
@@ -134,6 +176,32 @@ export class OrbitScene {
       u.uOpacity0.value = THREE.MathUtils.smoothstep(this.progress, 0.0, 0.3)
       u.uOpacity1.value = THREE.MathUtils.smoothstep(this.progress, 0.25, 0.6)
       u.uOpacity2.value = THREE.MathUtils.smoothstep(this.progress, 0.5, 0.95)
+
+      // 궤도선·빔은 소속 링의 리빌 진행도와 동기화
+      const ringOps = [u.uOpacity0.value, u.uOpacity1.value, u.uOpacity2.value]
+      this.orbitLineMats.forEach((mat, i) => (mat.opacity = ringOps[i] * 0.25))
+      for (const beam of this.beams) {
+        beam.mat.uniforms.uTime.value = now
+        beam.mat.uniforms.uOpacity.value = ringOps[beam.ring]
+        // 대표 노드의 현재 위치를 셰이더와 같은 수식으로 재계산해 빔 끝점을 따라붙인다
+        const r = RING_RADII[beam.ring]
+        const incline = RING_INCLINES[beam.ring]
+        const angle = beam.phase + now * RING_SPEEDS[beam.ring]
+        const nx = r * Math.cos(angle)
+        const ny = -r * Math.sin(angle) * Math.sin(incline)
+        const nz = r * Math.sin(angle) * Math.cos(incline)
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1
+        const seg = beam.positions.length / 3 - 1
+        for (let s = 0; s <= seg; s++) {
+          const t = s / seg
+          // t=0은 코어 표면(반지름 0.36)에서 시작
+          const k = 0.36 / len + (1 - 0.36 / len) * t
+          beam.positions[s * 3] = nx * k
+          beam.positions[s * 3 + 1] = ny * k
+          beam.positions[s * 3 + 2] = nz * k
+        }
+        beam.attr.needsUpdate = true
+      }
 
       this.camera.position.z = THREE.MathUtils.lerp(7, 4.6, THREE.MathUtils.clamp(this.progress, 0, 1))
 
@@ -172,6 +240,8 @@ export class OrbitScene {
     window.removeEventListener('pointermove', this.onPointerMove)
     this.ringMaterial.dispose()
     this.glowMaterial.dispose()
+    this.orbitLineMats.forEach((m) => m.dispose())
+    this.beams.forEach((b) => b.mat.dispose())
     this.renderer.dispose()
   }
 }

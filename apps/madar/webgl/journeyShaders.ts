@@ -46,7 +46,11 @@ void main() {
   // 카메라(스크롤 진행도)가 위치한 구간을 더 밝혀 "지금 여기"를 드러낸다
   float focus = smoothstep(0.22, 0.0, abs(vUv.x - uProgress));
 
-  vec3 color = base * (0.5 + fresnel * 1.1) + vec3(1.0) * wave * 0.55 + base * focus * 0.9;
+  // 도로 대시 — 경로 길이 방향의 일정 간격 밝은 마디. 특정 UV.y 띠에만 넣으면
+  // 그 면이 카메라 반대편을 향할 때 안 보이므로, 둘레 전체에 얹되 약하게 유지한다
+  float dash = step(0.62, fract(vUv.x * 90.0));
+
+  vec3 color = base * (0.5 + fresnel * 1.1) + vec3(1.0) * wave * 0.55 + base * focus * 0.9 + vec3(1.0) * dash * 0.13;
   gl_FragColor = vec4(color, 1.0);
 }
 `
