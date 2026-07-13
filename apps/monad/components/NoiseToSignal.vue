@@ -9,7 +9,9 @@
           볼륨을 60% 이상 줄입니다.
         </p>
       </div>
-      <div ref="fieldEl" class="field" aria-hidden="true" />
+      <div ref="fieldEl" class="field" aria-hidden="true">
+        <span ref="badgeEl" class="badge mono">noise -0%</span>
+      </div>
     </div>
   </section>
 </template>
@@ -22,6 +24,7 @@ const rootEl = ref<HTMLElement | null>(null)
 const titleEl = ref<HTMLElement | null>(null)
 const bodyEl = ref<HTMLElement | null>(null)
 const fieldEl = ref<HTMLElement | null>(null)
+const badgeEl = ref<HTMLElement | null>(null)
 let ctx: gsap.Context | undefined
 
 const COUNT = 72
@@ -87,6 +90,8 @@ onMounted(() => {
           d.el.style.top = `${lerp(d.ny, d.gy, t)}%`
         }
         fieldEl.value!.style.setProperty('--mix', t.toString())
+        // 정렬 진행도가 곧 노이즈 감축률 — 스크럽에 직결
+        if (badgeEl.value) badgeEl.value.textContent = `noise -${Math.round(t * 63)}%`
       },
     })
 
@@ -133,6 +138,15 @@ onBeforeUnmount(() => ctx?.revert())
   border: 1px solid var(--line);
   border-radius: 1rem;
   --mix: 0;
+}
+
+.badge {
+  position: absolute;
+  top: 0.8rem;
+  right: 1rem;
+  font-size: var(--text-sm);
+  color: var(--signal);
+  letter-spacing: 0.08em;
 }
 
 .field :deep(.dot) {

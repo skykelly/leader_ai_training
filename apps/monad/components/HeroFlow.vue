@@ -37,6 +37,8 @@
       <p class="lede reveal">50개가 넘는 보안 툴에서 쏟아지는 데이터를, 하나의 정돈된 파이프라인으로 모읍니다.</p>
       <MagneticButton class="reveal">See the pipeline →</MagneticButton>
     </div>
+
+    <LogTicker />
   </section>
 </template>
 

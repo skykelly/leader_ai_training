@@ -26,9 +26,12 @@ export class AuraScene {
   private points: THREE.Points
   private geometry: THREE.BufferGeometry
   private targetMouse = new THREE.Vector2(0, 0)
+  private flowBoost = 0
+  private targetFlowBoost = 0
   private tickerFn: () => void
   private onResize: () => void
   private onPointerMove: (e: PointerEvent) => void
+  private onPointerDown: (e: PointerEvent) => void
   private resizeTimer: ReturnType<typeof setTimeout> | undefined
   private lastTime = 0
 
@@ -62,6 +65,8 @@ export class AuraScene {
         uDepthBoost: { value: initialMode === 'flow' ? 2.2 : 1.2 },
         uFeatureBoost: { value: initialMode === 'flow' ? 0 : 13 },
         uMouseFx: { value: initialMode === 'flow' ? 1 : 0 },
+        uRippleCenter: { value: new THREE.Vector2(0, 0) },
+        uRippleT: { value: 0 },
         uBreathAmount: { value: initialMode === 'flow' ? 1 : 0.18 },
         uColorA: { value: new THREE.Color(initColors[0]) },
         uColorB: { value: new THREE.Color(initColors[1]) },
@@ -82,8 +87,18 @@ export class AuraScene {
         -((e.clientY / window.innerHeight) * 2 - 1),
       )
     }
+    this.onPointerDown = (e) => {
+      // 클릭 리플은 flow 모드 전용 — 얼굴 모드에서는 head tracking만 반응한다
+      if (this.mode !== 'flow') return
+      const nx = (e.clientX / window.innerWidth) * 2 - 1
+      const ny = -((e.clientY / window.innerHeight) * 2 - 1)
+      this.ripple(nx, ny)
+    }
     window.addEventListener('resize', this.onResize)
     window.addEventListener('pointermove', this.onPointerMove)
+    window.addEventListener('pointerdown', this.onPointerDown)
+    // dev 전용 테스트 훅 — Playwright 검증 스크립트가 씬을 정지/관측할 때 쓴다(프로덕션 번들에서는 제거됨)
+    if (import.meta.env.DEV) (window as unknown as { __aura?: AuraScene }).__aura = this
     this.resize() // 초기 드라이버(flow 또는 face)를 여기서 생성
 
     this.tickerFn = () => {
@@ -99,7 +114,11 @@ export class AuraScene {
       const ratio = u.uResolution.value.x / u.uResolution.value.y
       const posAttr = this.geometry.attributes.position as THREE.BufferAttribute | undefined
       if (this.mode === 'flow' && this.flow) {
-        this.flow.step(dt, now, ratio)
+        // 스크롤 속도 부스트 — dt를 배율해 흐름장이 실제로 빨라진다. 입력이 멎으면
+        // 목표값이 서서히 0으로 가라앉는다(slingshot 워프와 동일한 감쇠 패턴)
+        this.flowBoost += (this.targetFlowBoost - this.flowBoost) * Math.min(1, dt * 3)
+        this.targetFlowBoost += (0 - this.targetFlowBoost) * Math.min(1, dt * 1.2)
+        this.flow.step(dt * (1 + this.flowBoost * 2.5), now, ratio)
         if (posAttr) posAttr.needsUpdate = true
       } else if (this.mode === 'face' && this.face) {
         this.face.setTarget(mouse.x, mouse.y)
@@ -217,6 +236,22 @@ export class AuraScene {
     this.material.uniforms.uScroll.value = progress
   }
 
+  /** 스크롤 속도(정규화 0..1)를 흐름장 가속으로 반영 — flow 모드 전용 */
+  setFlowBoost(value: number) {
+    if (this.mode !== 'flow') return
+    this.targetFlowBoost = Math.max(this.targetFlowBoost, Math.min(1.5, value))
+  }
+
+  /** 클릭 지점에서 확산되는 밝기 링 */
+  ripple(nx: number, ny: number) {
+    const u = this.material.uniforms
+    const ratio = (u.uResolution.value as THREE.Vector2).x / (u.uResolution.value as THREE.Vector2).y
+    ;(u.uRippleCenter.value as THREE.Vector2).set(nx * ratio, ny)
+    gsap.killTweensOf(u.uRippleT)
+    u.uRippleT.value = 0.001
+    gsap.to(u.uRippleT, { value: 1, duration: 0.8, ease: 'power1.out', onComplete: () => (u.uRippleT.value = 0) })
+  }
+
   private resize() {
     const w = window.innerWidth
     const h = window.innerHeight
@@ -236,6 +271,7 @@ export class AuraScene {
     gsap.ticker.remove(this.tickerFn)
     window.removeEventListener('resize', this.onResize)
     window.removeEventListener('pointermove', this.onPointerMove)
+    window.removeEventListener('pointerdown', this.onPointerDown)
     this.geometry.dispose()
     this.renderer.dispose()
     this.material.dispose()

@@ -53,6 +53,7 @@ export function useAura() {
     setPalette,
     setIntensity,
     setScroll: (p: number) => scene?.setScroll(p),
+    setFlowBoost: (v: number) => scene?.setFlowBoost(v),
     pulse: () => scene?.pulse(),
   }
 }

@@ -19,6 +19,8 @@ onMounted(() => {
     onUpdate: (self) => {
       gsap.set(barEl.value, { scaleY: self.progress })
       aura.setScroll(self.progress)
+      // 스크롤 속도가 흐름장 가속 페달이 된다 (px/s → 0..1.5 정규화)
+      aura.setFlowBoost(Math.abs(self.getVelocity()) / 2500)
     },
   })
 })

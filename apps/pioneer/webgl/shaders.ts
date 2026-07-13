@@ -22,6 +22,8 @@ uniform float uDepthBoost; // 얼굴 모드에서 z(깊이)를 밝기/크기로 
 uniform float uFeatureBoost; // aFeature를 밝기로 환산하는 계수 — 정투영이라 정면에서는 z만으론 굴곡이 안 보여 별도로 강조한다
 uniform float uMouseFx; // 커서 로컬 글로우/밀어내기 강도. flow=1, face=0(머리 회전이 반응을 대신함)
 uniform float uBreathAmount; // 노이즈 기반 밝기 요동의 비중. face 모드는 낮춰 depth 대비가 묻히지 않게 한다
+uniform vec2  uRippleCenter; // 클릭 리플 중심(물리 좌표, x는 ratio 배)
+uniform float uRippleT; // 리플 진행도 0..1 — 0이면 비활성
 
 // --- simplex noise (Ashima / IQ 계열 표준 구현) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -80,12 +82,20 @@ void main() {
   // aFeature는 굴곡의 절대값(돌출·함몰 모두)을 밝기로 직접 끌어올린다 —
   // 정투영에서는 회전이 없는 정면일 때 z만으로는 이목구비가 거의 안 보이기 때문
   glow += abs(aFeature) * uFeatureBoost;
+  // 클릭 리플: 클릭점에서 확산되는 충격파 링 — 링 위의 점은 밝아지며 바깥으로 밀려나고,
+  // 퍼질수록 옅어진다. uRippleT=0이면 꺼짐.
+  // smoothstep은 edge0 < edge1만 스펙 보장이라(역방향은 SwiftShader에서 0) 1.0-정방향 형태로 쓴다
+  float rippleDist = distance(pos, uRippleCenter);
+  float ring = (1.0 - smoothstep(0.0, 0.14, abs(rippleDist - uRippleT * 1.6)))
+             * step(0.0005, uRippleT) * (1.0 - uRippleT);
+  glow += 1.2 * ring;
   vGlow = clamp(glow, 0.0, 2.4);
   vMix = n;
 
   // 커서 주변 점은 살짝 밀려나 촉각적인 반응을 만든다
   vec2 pushDir = (pos - mouseP) / (distToMouse + 0.0001);
   vec2 displaced = pos + pushDir * mouseInfluence * 0.06;
+  displaced += (pos - uRippleCenter) / max(0.001, rippleDist) * ring * 0.07;
 
   gl_Position = vec4(displaced.x / ratio, displaced.y, 0.0, 1.0);
   gl_PointSize = uBaseSize * (0.55 + vGlow * 0.85) * uPixelRatio;
