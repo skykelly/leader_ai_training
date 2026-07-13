@@ -24,6 +24,7 @@ export function useCore() {
     setAmplitude: (v: number, duration?: number) => scene?.setAmplitude(v, duration),
     setGlow: (v: number, duration?: number) => scene?.setGlow(v, duration),
     setScale: (v: number, duration?: number) => scene?.setScale(v, duration),
+    setOffset: (x: number, duration?: number) => scene?.setOffset(x, duration),
     pulse: () => scene?.pulse(),
   }
 }

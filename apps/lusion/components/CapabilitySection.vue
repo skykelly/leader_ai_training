@@ -35,10 +35,15 @@ onMounted(() => {
         gsap.from(bodyEl.value, { autoAlpha: 0, y: 24, duration: 0.8, ease: 'power3.out' })
         core.setPalette(props.cap.palette)
         core.setScale(1.15)
+        // 구체가 텍스트 반대편으로 비켜선다 — reverse 레이아웃(홀수)은 카피가
+        // 오른쪽이므로 구체를 왼쪽(-)으로
+        core.setOffset(props.index % 2 === 1 ? -1.1 : 1.1)
         core.pulse()
       },
       onLeaveBack: () => {
         core.setScale(1)
+        // 이전 섹션(또는 히어로)의 오프셋으로 복귀
+        core.setOffset(props.index === 0 ? 0 : (props.index - 1) % 2 === 1 ? -1.1 : 1.1)
       },
     })
     return () => split.revert()

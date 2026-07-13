@@ -1,5 +1,5 @@
 <template>
-  <main class="stage" :class="{ ready }">
+  <main ref="stageEl" class="stage" :class="{ ready }">
     <WaveLoader @done="onLoaderDone" />
 
     <SlideSection
@@ -24,9 +24,11 @@
 </template>
 
 <script setup lang="ts">
+import gsap from 'gsap'
 import { slides } from '~/data/slides'
 
 const waveEl = ref<{ sweep: (swap: () => void) => Promise<void> } | null>(null)
+const stageEl = ref<HTMLElement | null>(null)
 const ready = ref(false)
 const reduced = ref(false)
 
@@ -39,6 +41,14 @@ const slider = useSlider({
       return Promise.resolve()
     }
     return waveEl.value.sweep(commit)
+  },
+  // 잠금 중/끝 슬라이드에서의 입력은 무시하지 않고 "눌렸다 튕기는" 저항으로 답한다
+  onResist: (dir) => {
+    if (!stageEl.value) return
+    gsap
+      .timeline({ overwrite: 'auto' })
+      .to(stageEl.value, { y: -12 * dir, duration: 0.18, ease: 'power2.out' })
+      .to(stageEl.value, { y: 0, duration: 0.7, ease: 'elastic.out(1, 0.4)' })
   },
 })
 

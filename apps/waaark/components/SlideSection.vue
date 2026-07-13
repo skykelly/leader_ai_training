@@ -42,11 +42,19 @@ function reveal() {
     { yPercent: 0, duration: 0.9, ease: 'power4.out', stagger: 0.02 },
     0.1,
   )
+    // 패럴랙스 정착: 요소마다 다른 깊이(y 오프셋·시차)로 도착해
+    // 전환 직후 장면에 원근이 생긴다 — 일러스트가 가장 깊고 텍스트가 가장 얕다
     .fromTo(
-      root.querySelectorAll('.reveal-fade'),
-      { autoAlpha: 0, y: 26 },
+      root.querySelector('.visual'),
+      { autoAlpha: 0, y: 44 },
+      { autoAlpha: 1, y: 0, duration: 1.2, ease: 'power3.out' },
+      0.2,
+    )
+    .fromTo(
+      root.querySelectorAll('.copy .reveal-fade'),
+      { autoAlpha: 0, y: 14 },
       { autoAlpha: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.1 },
-      0.25,
+      0.32,
     )
     // 일러스트 드로우온: stroke-dashoffset 1→0
     .fromTo(

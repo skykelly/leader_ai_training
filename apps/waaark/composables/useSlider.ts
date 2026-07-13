@@ -13,6 +13,11 @@ export function useSlider(opts: {
    * 완전히 덮었을 때)에 commit()을 호출하면 index가 그 시점에 바뀐다.
    */
   onChange: (to: number, from: number, commit: () => void) => Promise<void>
+  /**
+   * 전환이 잠겨 있거나(연출 중) 끝 슬라이드에서 더 가려 할 때 —
+   * 입력을 무시하는 대신 "눌렸다 튕기는" 저항 피드백을 줄 수 있게 위임한다.
+   */
+  onResist?: (dir: 1 | -1) => void
 }) {
   const index = ref(0)
   const busy = ref(false)
@@ -40,8 +45,8 @@ export function useSlider(opts: {
       wheelSpeed: -1,
       tolerance: 10,
       preventDefault: true,
-      onDown: () => prev(),
-      onUp: () => next(),
+      onDown: () => (busy.value || index.value === 0 ? opts.onResist?.(-1) : prev()),
+      onUp: () => (busy.value || index.value === opts.count - 1 ? opts.onResist?.(1) : next()),
     })
 
     onKey = (e) => {

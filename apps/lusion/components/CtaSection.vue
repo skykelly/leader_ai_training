@@ -26,6 +26,7 @@ onMounted(() => {
         core.setPalette('cta')
         core.setGlow(1.4)
         core.setScale(1.3)
+        core.setOffset(0) // CTA는 중앙 정렬 — 구체가 다시 가운데로 돌아온다
       },
     })
     return () => split.revert()

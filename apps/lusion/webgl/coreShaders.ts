@@ -74,6 +74,8 @@ ${snoise3D}
 uniform float uTime;
 uniform float uAmplitude;
 uniform float uFrequency;
+uniform vec3 uPointer; // 구체 로컬 좌표계에서 커서가 가리키는 방향(정규화)
+uniform float uBulge;
 
 varying vec3 vNormal;
 varying vec3 vViewPos;
@@ -83,7 +85,9 @@ void main() {
   float n = snoise(normal * uFrequency + vec3(0.0, 0.0, uTime * 0.15));
   vNoise = n;
 
-  vec3 displaced = position + normal * n * uAmplitude;
+  // 커서 방향의 표면이 국소적으로 부풀어 오른다 — 지수를 높여 좁은 혹으로
+  float prox = pow(max(dot(normalize(position), uPointer), 0.0), 6.0);
+  vec3 displaced = position + normal * (n * uAmplitude + prox * uBulge);
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
 
   vViewPos = -mvPosition.xyz;

@@ -21,6 +21,11 @@ export class CoreScene {
 
   private targetMouse = new THREE.Vector2(0, 0)
   private mouse = new THREE.Vector2(0, 0)
+  // 커서 벌지 계산용 재사용 벡터(프레임당 할당 방지)
+  private rayDir = new THREE.Vector3()
+  private toCenter = new THREE.Vector3()
+  private closest = new THREE.Vector3()
+  private qInv = new THREE.Quaternion()
   private tickerFn: () => void
   private onResize: () => void
   private onPointerMove: (e: PointerEvent) => void
@@ -46,6 +51,8 @@ export class CoreScene {
         uAmplitude: { value: 0.09 },
         uFrequency: { value: 1.6 },
         uGlow: { value: 1 },
+        uPointer: { value: new THREE.Vector3(0, 0, 1) },
+        uBulge: { value: 0.22 },
         uColorA: { value: new THREE.Color(initColors[0]) },
         uColorB: { value: new THREE.Color(initColors[1]) },
       },
@@ -93,6 +100,19 @@ export class CoreScene {
       this.group.rotation.y = this.autoRotation + this.mouse.x * 0.35
       this.group.rotation.x = this.mouse.y * 0.22
       this.starField.rotation.y = this.autoRotation * 0.08
+
+      // 커서가 가리키는 표면이 부풀도록, 커서 레이에서 구체 중심에 가장 가까운
+      // 점의 방향을 구해 구체 로컬 좌표(그룹 회전의 역)로 변환해 셰이더에 넘긴다
+      this.rayDir.set(this.mouse.x, this.mouse.y, 0.5).unproject(this.camera).sub(this.camera.position).normalize()
+      this.toCenter.copy(this.group.position).sub(this.camera.position)
+      this.closest
+        .copy(this.camera.position)
+        .addScaledVector(this.rayDir, this.toCenter.dot(this.rayDir))
+        .sub(this.group.position)
+      if (this.closest.lengthSq() < 1e-6) this.closest.set(0, 0, 1)
+      this.qInv.copy(this.group.quaternion).invert()
+      this.closest.normalize().applyQuaternion(this.qInv)
+      ;(this.coreMaterial.uniforms.uPointer.value as THREE.Vector3).copy(this.closest)
 
       this.renderer.render(this.scene, this.camera)
     }
@@ -146,12 +166,22 @@ export class CoreScene {
     gsap.to(this.group.scale, { x: value, y: value, z: value, duration, ease: 'power3.out', overwrite: 'auto' })
   }
 
+  /** 스크롤 섹션 전환 — 구체가 텍스트 반대편으로 비켜서는 가로 오프셋 */
+  setOffset(x: number, duration = 1.2) {
+    gsap.to(this.group.position, { x, duration, ease: 'power3.inOut', overwrite: 'auto' })
+  }
+
   pulse() {
     const u = this.coreMaterial.uniforms.uAmplitude
+    const b = this.coreMaterial.uniforms.uBulge
     gsap
       .timeline()
       .to(u, { value: u.value + 0.08, duration: 0.2, ease: 'power2.out' })
       .to(u, { value: 0.09, duration: 0.7, ease: 'power2.inOut' })
+    gsap
+      .timeline()
+      .to(b, { value: 0.35, duration: 0.2, ease: 'power2.out' })
+      .to(b, { value: 0.22, duration: 0.7, ease: 'power2.inOut' })
   }
 
   private resize() {
