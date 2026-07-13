@@ -53,6 +53,11 @@ export const libraries: Library[] = [
         file: 'apps/pioneer/webgl/AuraScene.ts',
       },
       {
+        name: '스크롤 가속 + 클릭 리플 충격파',
+        how: '스크롤 속도(getVelocity)를 흐름장의 시간 배율로 반영해 빠르게 스크롤할수록 점들이 실제로 빨라지고, 입력이 멎으면 서서히 원속도로 가라앉습니다. 클릭 지점에서는 확산되는 링 위의 점들이 밝아지며 바깥으로 밀려나는 충격파 리플이 퍼집니다.',
+        file: 'apps/pioneer/webgl/AuraScene.ts',
+      },
+      {
         name: '관성 스무스 스크롤',
         how: 'Lenis의 rAF를 GSAP ticker가 구동하고, 스크롤 이벤트마다 ScrollTrigger.update를 호출해 관성 스크롤과 scrub 애니메이션을 동기화합니다.',
         file: 'apps/pioneer/composables/useLenis.ts',
@@ -118,6 +123,11 @@ export const libraries: Library[] = [
         file: 'apps/waaark/components/SlideIllustration.vue',
       },
       {
+        name: '슬라이드 내부 패럴랙스 + 휠 저항',
+        how: '슬라이드 리빌 타임라인을 요소 깊이별로 분해해 일러스트와 카피가 서로 다른 거리·시차로 정착하며 화면에 깊이가 생깁니다. 전환 잠금 중 휠을 연타하면 스테이지가 진행 방향으로 살짝 밀렸다 elastic 이징으로 튕겨 돌아와 "아직 넘어갈 수 없다"는 촉각 피드백을 줍니다.',
+        file: 'apps/waaark/composables/useSlider.ts',
+      },
+      {
         name: '도트 내비게이션',
         how: '우측 고정 도트가 현재 슬라이드에서 세로로 길어지는 pill 형태로 변합니다. mix-blend-difference로 어떤 배경색 위에서도 보입니다.',
         file: 'apps/waaark/components/DotNav.vue',
@@ -163,6 +173,11 @@ export const libraries: Library[] = [
         file: 'apps/lusion/components/CapabilitySection.vue',
       },
       {
+        name: '커서 벌지 + 섹션 카메라 오프셋',
+        how: '커서 레이에서 구체 중심에 가장 가까운 점의 방향을 그룹 회전의 역쿼터니언으로 로컬 좌표로 변환해 셰이더에 넘기고, 그 방향의 표면만 법선 방향으로 부풀립니다(pow 감쇠로 국소화). 기능 섹션마다 구체가 좌우로 오프셋 이동해 텍스트와 자리를 주고받습니다.',
+        file: 'apps/lusion/webgl/coreShaders.ts',
+      },
+      {
         name: '마우스 패럴랙스 회전',
         how: '커서 위치를 lerp해 오브젝트 그룹의 회전에 자동 회전값과 더해 합성합니다. 자동 회전은 계속 누적되고, 마우스 오프셋은 그 위에 얹히는 방식이라 회전이 끊기지 않습니다.',
         file: 'apps/lusion/webgl/CoreScene.ts',
@@ -203,6 +218,11 @@ export const libraries: Library[] = [
         file: 'apps/madar/webgl/JourneyScene.ts',
       },
       {
+        name: '3D→2D 웨이포인트 라벨 + 도로 대시',
+        how: '각 웨이포인트를 카메라로 project()해 화면 좌표로 변환하고, HTML 라벨이 매 프레임 그 위치에 따라붙습니다(현재 정류장만 표시). 튜브 표면에는 fract 기반 대시 패턴을 더해 경로가 "도로"로 읽히게 했습니다.',
+        file: 'apps/madar/components/JourneyCanvas.vue',
+      },
+      {
         name: '둥근 모서리 + 블러 카드(glassmorphism)',
         how: '반투명 배경에 backdrop-filter: blur()와 큰 border-radius를 적용한 `.glass` 유틸리티로 통계 패널을 유리처럼 표현합니다. Madar 원본의 시그니처인 "일관된 둥근 모서리·블러" 마이크로인터랙션을 재현했습니다.',
         file: 'apps/madar/components/StatsSection.vue',
@@ -236,6 +256,11 @@ export const libraries: Library[] = [
         name: 'SVG 터빈 일러스트(무한 회전 + draw-on)',
         how: '블레이드 `<g>`는 CSS keyframes로 항상 회전해 Lottie 루프 캐릭터 애니메이션과 같은 인상을 주고, 타워는 `stroke-dasharray`/`dashoffset`을 스크롤 진행도에 스크럽해 아래에서 위로 그려집니다.',
         file: 'apps/virya/components/TurbineIllustration.vue',
+      },
+      {
+        name: '히어로 패럴랙스 레이어 + 앰비언트 루프',
+        how: '풍경 SVG를 하늘/뒷산/앞산/터빈 4개 레이어로 나눠 아이리스가 열리는 동안 서로 다른 거리만큼 하강시켜 깊이를 만들고, 구름 표류와 태양광선 회전이 무한 루프로 장면을 계속 살아있게 합니다.',
+        file: 'apps/virya/components/HeroWindow.vue',
       },
       {
         name: '원형 게이지 데이터 시각화',
@@ -274,8 +299,13 @@ export const libraries: Library[] = [
       },
       {
         name: 'Noise → Signal 스크럽 모핑',
-        how: '각 점에 무작위(noise) 좌표와 정렬된 그리드(signal) 좌표를 미리 계산해두고, ScrollTrigger 진행도로 두 좌표를 선형보간합니다. `color-mix()`로 색상도 노이즈색→시그널색으로 함께 전환됩니다.',
+        how: '각 점에 무작위(noise) 좌표와 정렬된 그리드(signal) 좌표를 미리 계산해두고, ScrollTrigger 진행도로 두 좌표를 선형보간합니다. `color-mix()`로 색상도 노이즈색→시그널색으로 함께 전환됩니다. 정렬 진행도는 우상단 "noise -N%" 감축률 배지로 실시간 표시됩니다.',
         file: 'apps/monad/components/NoiseToSignal.vue',
+      },
+      {
+        name: '라이브 로그 티커',
+        how: '히어로 좌하단에서 보안 이벤트 로그가 1.2초마다 한 줄씩 흘러나오며 최대 6줄을 유지합니다. 라우팅된 신호와 걸러진 노이즈를 색으로 구분해 "파이프라인이 지금 살아 움직인다"는 인상을 만듭니다.',
+        file: 'apps/monad/components/LogTicker.vue',
       },
     ],
   },
@@ -301,6 +331,11 @@ export const libraries: Library[] = [
         name: '형태별 포인트 생성',
         how: '카오스는 공 내부 균일 분포, 전구는 구 셸(유리)+원통(베이스)+지그재그(필라멘트) 조합, 구체는 매끈한 구 표면 샘플링으로 만듭니다. 세 세트 모두 같은 인덱스 수를 가져 정점 단위로 자연스럽게 자리를 옮깁니다.',
         file: 'apps/dala/webgl/shapes.ts',
+      },
+      {
+        name: '파티클별 리플 모프 + 점화 플래시',
+        how: '파티클마다 랜덤 시차를 둔 smoothstep으로 모프 시작이 어긋나, 균일한 이동 대신 폭발하듯 형태가 번져갑니다. 전구가 완성되는 순간(uMorph=1 통과)을 감지해 호박색 점화 플래시가 짧게 터집니다.',
+        file: 'apps/dala/webgl/particleShaders.ts',
       },
       {
         name: '스크롤 연동 모프 진행',
@@ -333,6 +368,11 @@ export const libraries: Library[] = [
         file: 'apps/slingshot/components/WarpCanvas.vue',
       },
       {
+        name: '이미지 디스토션 패널 + FOV 킥',
+        how: '기능 섹션의 미디어 패널을 세분화한 평면과 커스텀 셰이더로 그려, 스크롤 속도에 비례해 표면이 물결치듯 휘고 RGB 채널이 어긋나는(chromatic aberration) 디스토션을 만듭니다. 워프 부스트 시에는 카메라 화각이 함께 벌어지는 FOV 킥으로 하이퍼스페이스 점프의 속도감을 완성합니다.',
+        file: 'apps/slingshot/components/DistortImage.vue',
+      },
+      {
         name: '떠다니는 와이어프레임 오브젝트 + 섹션 진입 부스트',
         how: '전송 중인 데이터 패킷의 은유로 이십면체·팔면체·사면체 와이어프레임을 배치해 각자 다른 속도로 자전·부유시키고, 기능 섹션이 화면에 들어올 때 워프 속도를 짧게 최고조로 끌어올리는 펄스를 줍니다.',
         file: 'apps/slingshot/webgl/WarpScene.ts',
@@ -361,6 +401,11 @@ export const libraries: Library[] = [
         name: '스크롤 연동 링 순차 리빌 + 카메라 돌리',
         how: '히어로 스크롤 러너웨이(sticky) 진행도를 안쪽 링부터 순서대로 나타나는 opacity와 카메라 z 위치(멀리→가까이)로 매핑합니다.',
         file: 'apps/dayos/components/OrbitCanvas.vue',
+      },
+      {
+        name: '궤도선 + 코어 연결 빔',
+        how: '정점 셰이더와 동일한 궤도 수식으로 타원 궤도선(LineLoop)을 그려 노드가 선 위에 정확히 올라타고, 링마다 대표 노드에서 코어로 이어지는 빔 위를 빛 파동이 흘러 "통합이 코어로 정렬된다"는 메타포를 완성합니다. 궤도선·빔의 투명도는 링 순차 리빌과 동기화됩니다.',
+        file: 'apps/dayos/webgl/OrbitScene.ts',
       },
       {
         name: 'AI 코어 글로우 셸',

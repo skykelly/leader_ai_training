@@ -15,8 +15,22 @@ Study Library</h1>
       </p>
     </section>
 
+    <nav class="filters container" aria-label="기법 스택 필터">
+      <button class="pill" :class="{ on: activeTag === null }" type="button" @click="activeTag = null">전체</button>
+      <button
+        v-for="tag in tags"
+        :key="tag"
+        class="pill"
+        :class="{ on: activeTag === tag }"
+        type="button"
+        @click="activeTag = tag"
+      >
+        {{ tag }}
+      </button>
+    </nav>
+
     <section class="grid container">
-      <LibraryCard v-for="(lib, i) in libraries" :key="lib.slug" :lib="lib" :index="i" class="reveal-card" />
+      <LibraryCard v-for="(lib, i) in filtered" :key="lib.slug" :lib="lib" :index="i" class="reveal-card" />
       <div class="coming reveal-card">
         <p class="display plus">+</p>
         <p class="eyebrow">Next library</p>
@@ -38,6 +52,13 @@ import { libraries } from '~/data/libraries'
 
 const titleEl = ref<HTMLElement | null>(null)
 let split: SplitText | null = null
+
+// 기법 스택 필터 — 'Nuxt 3'는 전 라이브러리 공통이라 제외한다
+const activeTag = ref<string | null>(null)
+const tags = computed(() => [...new Set(libraries.flatMap((l) => l.stack))].filter((t) => t !== 'Nuxt 3'))
+const filtered = computed(() =>
+  activeTag.value ? libraries.filter((l) => l.stack.includes(activeTag.value!)) : libraries,
+)
 
 onMounted(() => {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -85,11 +106,56 @@ onBeforeUnmount(() => split?.revert())
   max-width: 40rem;
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-bottom: 2.4rem;
+}
+
+.pill {
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  transition:
+    color 0.25s ease,
+    border-color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.pill:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+
+.pill.on {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   gap: 3rem 2.5rem;
   padding-bottom: 14vh;
+}
+
+/* 필터로 다시 나타나는 카드의 절제된 페이드인 */
+.grid > * {
+  animation: card-in 0.3s ease both;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
 .coming {

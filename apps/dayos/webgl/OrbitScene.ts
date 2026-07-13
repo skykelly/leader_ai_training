@@ -25,6 +25,7 @@ export class OrbitScene {
   private beams: { mat: THREE.ShaderMaterial; positions: Float32Array; attr: THREE.BufferAttribute; ring: number; phase: number }[] = []
 
   private targetMouse = new THREE.Vector2(0, 0)
+  private autoWander = false
   private mouse = new THREE.Vector2(0, 0)
   private progress = 0
   private targetProgress = 0
@@ -168,6 +169,8 @@ export class OrbitScene {
       this.lastTime = now
 
       this.ringMaterial.uniforms.uTime.value = now
+      // 터치 기기에는 커서가 없으므로 느린 리사주 궤적이 시선 이동을 대신한다
+      if (this.autoWander) this.targetMouse.set(Math.sin(now * 0.3) * 0.4, Math.cos(now * 0.23) * 0.25)
       this.mouse.lerp(this.targetMouse, 0.06)
       this.progress += (this.targetProgress - this.progress) * Math.min(1, dt * 2.4)
 
@@ -215,6 +218,11 @@ export class OrbitScene {
   }
 
   /** 마스터 ScrollTrigger가 0..1 범위의 진행도를 흘려보낸다 */
+  /** 터치 기기용: 커서 대신 자동 시선 순회를 켠다 */
+  setAutoWander(on: boolean) {
+    this.autoWander = on
+  }
+
   setProgress(value: number) {
     this.targetProgress = THREE.MathUtils.clamp(value, 0, 1)
   }

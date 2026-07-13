@@ -11,7 +11,9 @@ const core = useCore()
 onMounted(async () => {
   reduced.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reduced.value || !canvasEl.value) return
-  await core.init(canvasEl.value)
+  const scene = await core.init(canvasEl.value)
+  // 터치 기기: 커서가 없으니 시선이 자동으로 천천히 순회한다
+  if (window.matchMedia('(pointer: coarse)').matches) scene.setAutoWander(true)
 })
 
 onBeforeUnmount(() => core.destroy())

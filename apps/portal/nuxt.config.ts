@@ -22,6 +22,16 @@ export default defineNuxtConfig({
           content: '어워드 수상 사이트들의 스크롤리텔링·인터랙션 기법을 하나씩 따라 만드는 학습 클론 라이브러리',
         },
         { name: 'theme-color', content: '#0d0e12' },
+        // SPA(ssr:false)라 크롤러에는 루트 공통 OG만 잡힌다 — 페이지별 메타는 두지 않는다
+        { property: 'og:title', content: 'Scroll Study Library — 스크롤리텔링 학습 클론 컬렉션' },
+        {
+          property: 'og:description',
+          content: '어워드 수상 사이트들의 스크롤리텔링·인터랙션 기법을 하나씩 따라 만드는 학습 클론 라이브러리',
+        },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:url', content: 'https://skykelly.github.io/leader_ai_training/' },
+        { property: 'og:image', content: 'https://skykelly.github.io/leader_ai_training/thumbs/pioneer.png' },
+        { name: 'twitter:card', content: 'summary_large_image' },
       ],
       link: [
         {

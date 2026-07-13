@@ -12,8 +12,10 @@ const aura = useAura()
 onMounted(async () => {
   reduced.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reduced.value || !canvasEl.value) return
-  await aura.init(canvasEl.value)
+  const scene = await aura.init(canvasEl.value)
   aura.setIntensity(1, 2)
+  // 터치 기기: 커서가 없으니 시선이 자동으로 천천히 순회한다
+  if (window.matchMedia('(pointer: coarse)').matches) scene.setAutoWander(true)
 })
 
 onBeforeUnmount(() => aura.destroy())

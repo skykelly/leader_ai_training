@@ -26,6 +26,7 @@ export class AuraScene {
   private points: THREE.Points
   private geometry: THREE.BufferGeometry
   private targetMouse = new THREE.Vector2(0, 0)
+  private autoWander = false
   private flowBoost = 0
   private targetFlowBoost = 0
   private tickerFn: () => void
@@ -108,6 +109,8 @@ export class AuraScene {
 
       const u = this.material.uniforms
       u.uTime.value = now
+      // 터치 기기에는 커서가 없으므로 느린 리사주 궤적이 시선 이동을 대신한다
+      if (this.autoWander) this.targetMouse.set(Math.sin(now * 0.3) * 0.4, Math.cos(now * 0.23) * 0.25)
       const mouse = u.uMouse.value as THREE.Vector2
       mouse.lerp(this.targetMouse, 0.08)
 
@@ -234,6 +237,11 @@ export class AuraScene {
 
   setScroll(progress: number) {
     this.material.uniforms.uScroll.value = progress
+  }
+
+  /** 터치 기기용: 커서 대신 자동 시선 순회를 켠다 */
+  setAutoWander(on: boolean) {
+    this.autoWander = on
   }
 
   /** 스크롤 속도(정규화 0..1)를 흐름장 가속으로 반영 — flow 모드 전용 */

@@ -14,7 +14,9 @@ let scrollTrigger: ScrollTrigger | undefined
 onMounted(async () => {
   reduced.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reduced.value || !canvasEl.value) return
-  await warp.init(canvasEl.value)
+  const scene = await warp.init(canvasEl.value)
+  // 터치 기기: 커서가 없으니 시선이 자동으로 천천히 순회한다
+  if (window.matchMedia('(pointer: coarse)').matches) scene.setAutoWander(true)
 
   // 스크롤 속도 자체가 가속 페달이 된다 — 빠르게 스크롤할수록 워프 속도가 올라간다
   scrollTrigger = ScrollTrigger.create({

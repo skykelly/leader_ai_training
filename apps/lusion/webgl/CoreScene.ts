@@ -20,6 +20,7 @@ export class CoreScene {
   private starField: THREE.Points
 
   private targetMouse = new THREE.Vector2(0, 0)
+  private autoWander = false
   private mouse = new THREE.Vector2(0, 0)
   // 커서 벌지 계산용 재사용 벡터(프레임당 할당 방지)
   private rayDir = new THREE.Vector3()
@@ -94,6 +95,8 @@ export class CoreScene {
       this.lastTime = now
 
       this.coreMaterial.uniforms.uTime.value = now
+      // 터치 기기에는 커서가 없으므로 느린 리사주 궤적이 시선 이동을 대신한다
+      if (this.autoWander) this.targetMouse.set(Math.sin(now * 0.3) * 0.4, Math.cos(now * 0.23) * 0.25)
       this.mouse.lerp(this.targetMouse, 0.06)
 
       this.autoRotation += dt * 0.09
@@ -167,6 +170,11 @@ export class CoreScene {
   }
 
   /** 스크롤 섹션 전환 — 구체가 텍스트 반대편으로 비켜서는 가로 오프셋 */
+  /** 터치 기기용: 커서 대신 자동 시선 순회를 켠다 */
+  setAutoWander(on: boolean) {
+    this.autoWander = on
+  }
+
   setOffset(x: number, duration = 1.2) {
     gsap.to(this.group.position, { x, duration, ease: 'power3.inOut', overwrite: 'auto' })
   }

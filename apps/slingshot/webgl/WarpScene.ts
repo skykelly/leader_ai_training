@@ -29,6 +29,7 @@ export class WarpScene {
   private warp = 0.4
   private targetWarp = 0.4
   private targetMouse = new THREE.Vector2(0, 0)
+  private autoWander = false
   private mouse = new THREE.Vector2(0, 0)
 
   private tickerFn: () => void
@@ -106,6 +107,8 @@ export class WarpScene {
       const dt = Math.min(now - this.lastTime, 0.05)
       this.lastTime = now
 
+      // 터치 기기에는 커서가 없으므로 느린 리사주 궤적이 시선 이동을 대신한다
+      if (this.autoWander) this.targetMouse.set(Math.sin(now * 0.3) * 0.4, Math.cos(now * 0.23) * 0.25)
       this.mouse.lerp(this.targetMouse, 0.05)
       this.warp += (this.targetWarp - this.warp) * Math.min(1, dt * 1.6)
       // 부스트가 없을 때는 서서히 기본 순항 속도로 되돌아온다
@@ -177,6 +180,11 @@ export class WarpScene {
     this.renderer.setSize(w, h)
     this.camera.aspect = w / h
     this.camera.updateProjectionMatrix()
+  }
+
+  /** 터치 기기용: 커서 대신 자동 시선 순회를 켠다 */
+  setAutoWander(on: boolean) {
+    this.autoWander = on
   }
 
   dispose() {

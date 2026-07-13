@@ -14,7 +14,9 @@ let scrollTrigger: ScrollTrigger | undefined
 onMounted(async () => {
   reduced.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reduced.value || !canvasEl.value) return
-  await orbit.init(canvasEl.value)
+  const scene = await orbit.init(canvasEl.value)
+  // 터치 기기: 커서가 없으니 시선이 자동으로 천천히 순회한다
+  if (window.matchMedia('(pointer: coarse)').matches) scene.setAutoWander(true)
 
   // #orbit-track(히어로) 구간을 스크롤하는 동안 링이 순서대로 나타나며 카메라가 다가간다
   scrollTrigger = ScrollTrigger.create({

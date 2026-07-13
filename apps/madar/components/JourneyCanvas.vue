@@ -35,6 +35,8 @@ onMounted(async () => {
   reduced.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reduced.value || !canvasEl.value) return
   const scene = await journey.init(canvasEl.value)
+  // 터치 기기: 커서가 없으니 시선이 자동으로 천천히 순회한다
+  if (window.matchMedia('(pointer: coarse)').matches) scene.setAutoWander(true)
 
   // 문서 전체 스크롤 진행도(0..1)가 곧 경로 위 카메라 위치가 된다
   scrollTrigger = ScrollTrigger.create({
