@@ -18,15 +18,19 @@ uniform float uPixelRatio;
 uniform float uSize;
 
 varying float vRandom;
-varying float vMorph;
+varying float vM0;
+varying float vM1;
 
 void main() {
-  vec3 pos;
-  if (uMorph < 1.0) {
-    pos = mix(position, aPosB, uMorph);
-  } else {
-    pos = mix(aPosB, aPosC, uMorph - 1.0);
-  }
+  // 파티클별 리플 모프 — aRandom으로 시작 시점을 늦춰, 모프가 균일한 lerp가
+  // 아니라 물결처럼 번져가게 한다. smoothstep(…, 1.0, 1.0)=1이므로 각 구간의
+  // 끝점 형태는 리플 없이도 정확히 보존된다.
+  const float RIPPLE = 0.35;
+  float t0 = clamp(uMorph, 0.0, 1.0);
+  float t1 = clamp(uMorph - 1.0, 0.0, 1.0);
+  float m0 = smoothstep(aRandom * RIPPLE, 1.0, t0);
+  float m1 = smoothstep(aRandom * RIPPLE, 1.0, t1);
+  vec3 pos = mix(mix(position, aPosB, m0), aPosC, m1);
 
   // 살짝 살아있는 느낌을 주는 유기적 흔들림 — 형태가 굳어 보이지 않게
   pos += vec3(
@@ -44,7 +48,8 @@ void main() {
   gl_PointSize = uSize * breathe * uPixelRatio * (4.4 / -mvPosition.z);
 
   vRandom = aRandom;
-  vMorph = uMorph;
+  vM0 = m0;
+  vM1 = m1;
 }
 `
 
@@ -54,9 +59,11 @@ precision highp float;
 uniform vec3 uColorChaos;
 uniform vec3 uColorBulb;
 uniform vec3 uColorGlobe;
+uniform float uFlash;
 
 varying float vRandom;
-varying float vMorph;
+varying float vM0;
+varying float vM1;
 
 void main() {
   vec2 c = gl_PointCoord - 0.5;
@@ -64,12 +71,10 @@ void main() {
   float circle = smoothstep(1.0, 0.3, d);
   if (circle <= 0.001) discard;
 
-  vec3 color;
-  if (vMorph < 1.0) {
-    color = mix(uColorChaos, uColorBulb, vMorph);
-  } else {
-    color = mix(uColorBulb, uColorGlobe, vMorph - 1.0);
-  }
+  // 위치와 같은 리플 진행도로 색을 보간해, 색과 형태가 파티클 단위로 함께 바뀐다
+  vec3 color = mix(mix(uColorChaos, uColorBulb, vM0), uColorGlobe, vM1);
+  // 전구 완성 순간의 점화 플래시
+  color += uColorBulb * uFlash * 0.8;
 
   float alpha = circle * (0.55 + 0.45 * vRandom);
   gl_FragColor = vec4(color, alpha);

@@ -111,6 +111,10 @@ export class WarpScene {
       // 부스트가 없을 때는 서서히 기본 순항 속도로 되돌아온다
       this.targetWarp += (0.4 - this.targetWarp) * Math.min(1, dt * 0.6)
 
+      // 워프가 빨라질수록 화각이 벌어지는 FOV 킥 — 하이퍼스페이스 점프의 고전적 속도감
+      this.camera.fov = 60 + this.warp * 16
+      this.camera.updateProjectionMatrix()
+
       const speedScale = 6 + this.warp * 26
       const trailScale = 0.4 + this.warp * 3.2
 

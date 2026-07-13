@@ -66,6 +66,7 @@ export class ParticleScene {
         uColorChaos: { value: new THREE.Color(COLOR_CHAOS) },
         uColorBulb: { value: new THREE.Color(COLOR_BULB) },
         uColorGlobe: { value: new THREE.Color(COLOR_GLOBE) },
+        uFlash: { value: 0 },
       },
     })
 
@@ -88,8 +89,19 @@ export class ParticleScene {
 
       this.material.uniforms.uTime.value = now
       this.mouse.lerp(this.targetMouse, 0.06)
+      const prevMorph = this.morph
       this.morph += (this.targetMorph - this.morph) * Math.min(1, dt * 3.2)
       this.material.uniforms.uMorph.value = this.morph
+
+      // 전구가 완성되는 순간(morph=1 상향 통과)의 점화 플래시
+      if (prevMorph < 1 && this.morph >= 1) {
+        const u = this.material.uniforms.uFlash
+        gsap.killTweensOf(u)
+        gsap
+          .timeline()
+          .to(u, { value: 1, duration: 0.15, ease: 'power2.out' })
+          .to(u, { value: 0, duration: 0.6, ease: 'power2.inOut' })
+      }
 
       this.autoRotation += dt * 0.06
       this.group.rotation.y = this.autoRotation + this.mouse.x * 0.3

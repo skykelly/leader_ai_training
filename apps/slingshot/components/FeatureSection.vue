@@ -6,7 +6,7 @@
         <h2 ref="titleEl" class="display title">{{ feature.title }}</h2>
         <p ref="bodyEl" class="body">{{ feature.body }}</p>
       </div>
-      <div class="spacer" aria-hidden="true" />
+      <DistortImage class="spacer" :label="feature.label" :tint="feature.tint" />
     </div>
   </section>
 </template>
