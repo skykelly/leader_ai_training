@@ -7,7 +7,7 @@ export default defineNuxtConfig({
 
   css: [
     '@fontsource-variable/space-grotesk/index.css',
-    'pretendard/dist/web/variable/pretendardvariable.css',
+    'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css',
     '~/assets/styles/main.scss',
   ],
 
