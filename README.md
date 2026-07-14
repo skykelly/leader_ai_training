@@ -35,12 +35,18 @@ apps/
 ├── monad/     # 라이브러리 #6
 ├── dala/      # 라이브러리 #7
 ├── slingshot/ # 라이브러리 #8
-└── dayos/     # 라이브러리 #9
+├── dayos/     # 라이브러리 #9
+└── starter/   # scrollkit 기반 새 사이트 시작 템플릿 (복사해서 사용)
+packages/
+└── scrollkit/ # 재사용 기법 공유 레이어 (WebGL 배경 3종, 리빌, 커서, 마그네틱 버튼)
+docs/TECHNIQUES.md      # 기법 → 원본 파일 → 의존성 → 주의점 포팅 가이드
 scripts/build-dist.sh   # 전체 앱 빌드 → dist/ 조립 (CI와 로컬 공용)
 ```
 
 - npm workspaces 모노레포 — 루트에서 `npm install` 한 번으로 전체 설치
-- 각 앱은 완전히 독립된 Nuxt 3 앱 (라이브러리마다 다른 스택 실험 가능)
+- 각 클론 앱은 완전히 독립된 Nuxt 3 앱 (라이브러리마다 다른 스택 실험 가능)
+- **새 사이트를 만들 때**: `apps/starter`를 복사하고 [`docs/TECHNIQUES.md`](docs/TECHNIQUES.md)에서
+  필요한 기법을 찾는다 — 공통 기법은 `packages/scrollkit`에서 import
 
 ## 실행
 

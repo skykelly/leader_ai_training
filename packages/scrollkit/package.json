@@ -1,0 +1,18 @@
+{
+  "name": "scrollkit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./nuxt.config.ts",
+  "exports": {
+    ".": "./nuxt.config.ts",
+    "./webgl/*": "./webgl/*.ts"
+  },
+  "dependencies": {
+    "gsap": "^3.13.0",
+    "three": "^0.177.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.177.0"
+  }
+}

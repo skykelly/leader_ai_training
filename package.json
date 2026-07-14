@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev:pioneer": "npm run dev --workspace apps/pioneer",
@@ -16,6 +17,7 @@
     "dev:dala": "npm run dev --workspace apps/dala",
     "dev:slingshot": "npm run dev --workspace apps/slingshot",
     "dev:dayos": "npm run dev --workspace apps/dayos",
-    "generate:all": "npm run generate --workspaces"
+    "dev:starter": "npm run dev --workspace apps/starter",
+    "generate:all": "npm run generate --workspaces --if-present"
   }
 }
