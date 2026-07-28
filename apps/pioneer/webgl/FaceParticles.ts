@@ -74,7 +74,7 @@ export class FaceParticles {
         uTime: { value: 0 },
         uLifeSpan: { value: 3 },
         uLifeSpanVariation: { value: 0.5 },
-        uParticleScale: { value: 18.5 },
+        uParticleScale: { value: 23 },
         uScaleVariation: { value: 2.5 },
         uNoiseFrequency: { value: 0.4 },
         uNoiseIntensity: { value: 0.015 },
@@ -85,7 +85,7 @@ export class FaceParticles {
         uExplosion: { value: 0 },
         uOpacity: { value: 0 }, // 페이드인으로 올린다
         uSpeechFactor: { value: 0 },
-        uMonoColor: { value: new THREE.Color('#b7a4ff') },
+        uMonoColor: { value: new THREE.Color('#8302af') },
         uFaceAlbedo: { value: null },
         uFaceDepth: { value: null },
       },

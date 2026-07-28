@@ -38,6 +38,7 @@ varying vec2 vUv;
 varying float vFade;
 varying float vSeedY;
 varying float vDepth;
+varying float vLight;
 
 // --- simplex noise (Ashima 3D) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -118,6 +119,22 @@ void main() {
   vDepth = depth;
   vec3 pos = vec3(aInitialPos.xy, (depth - 0.5) * uDepthScale);
 
+  // --- relighting ---
+  // 소스 렌더는 위쪽 조명이라 albedo의 명암이 "그때의 그림자"를 담고 있다.
+  // 그대로 파티클 밝기로 쓰면 얼굴이 얼룩진다. depth에서 법선을 뽑아
+  // 정면광으로 다시 칠하면 얼굴 전체가 고르게 드러난다(원본의 인상과 같아진다).
+  float texel = 1.0 / 1024.0;
+  float dR = texture2D(uFaceDepth, uv + vec2(texel * 2.0, 0.0)).r;
+  float dL = texture2D(uFaceDepth, uv - vec2(texel * 2.0, 0.0)).r;
+  float dU = texture2D(uFaceDepth, uv + vec2(0.0, texel * 2.0)).r;
+  float dD = texture2D(uFaceDepth, uv - vec2(0.0, texel * 2.0)).r;
+  vec3 nrm = normalize(vec3((dL - dR) * 6.0, (dD - dU) * 6.0, 1.0));
+  // 정면에서 살짝 위/오른쪽으로 치우친 부드러운 키라이트 + 은은한 앰비언트.
+  // 원본은 밝기 편차가 작고(대부분 한 구간에 몰림) 형태는 실루엣으로 읽히므로
+  // 앰비언트를 크게 잡아 얼굴이 고르게 깔리게 한다
+  float key = max(dot(nrm, normalize(vec3(0.18, 0.3, 1.0))), 0.0);
+  vLight = 0.66 + key * 0.4;
+
   // 바람장을 따라 수명 동안 누적 이동 — 얼굴에서 연기처럼 흘러나온다.
   // 이동량이 크면 형상이 뭉개지므로, 수명 후반부로 갈수록 서서히 풀리게 한다
   vec3 flow = curl(pos * uNoiseFrequency + vec3(0.0, 0.0, uTime * 0.08));
@@ -153,6 +170,7 @@ varying vec2 vUv;
 varying float vFade;
 varying float vSeedY;
 varying float vDepth;
+varying float vLight;
 
 const float BORDER = 0.02;
 const float DISC_RADIUS = 0.5;
@@ -165,25 +183,26 @@ void main() {
   if (disc <= 0.01) discard;
 
   vec3 faceColor = texture2D(uFaceAlbedo, vUv).rgb;
-  // 클레이 렌더는 명암 폭이 좁아 그대로 쓰면 이목구비가 묻힌다.
-  // 배경(거의 0)은 잘라내고 얼굴이 쓰는 좁은 밝기 구간을 0..1로 펴 대비를 넓힌다
+  // albedo는 이제 "얼굴이 있는가(마스크)"로만 쓰고, 밝기는 relighting이 만든다.
+  // 소스 렌더의 조명 명암을 그대로 쓰면 얼굴이 얼룩지기 때문이다.
   float raw = clamp(length(faceColor) / 1.732, 0.0, 1.0);
-  float lum = smoothstep(0.05, 0.58, raw);
+  float mask = smoothstep(0.02, 0.14, raw);
+  // 정면광 + 원래 명암을 소량만 섞어 피부 굴곡의 잔결을 남긴다
+  float lum = mask * mix(vLight, raw * 1.5, 0.22);
 
-  // 앞으로 나온 부분(코·이마)을 밝게 — 정투영이 아니어도 입체가 더 읽힌다.
-  // 과하면 코만 타버리므로 완만하게 준다
-  float depthBoost = 0.72 + vDepth * 0.55;
+  // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
+  // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
+  // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
+  vec3 mono = lum * uMonoColor * 0.46;
+  vec3 color = mix(mono, faceColor * 0.46, uSpeechFactor);
+  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.07;
+  color += (vSeedY - 0.5) * 0.03;
 
-  // 밝기를 단색 틴트에 실어 팔레트 톤으로 물들이고, speech에서 원래 색을 되살린다
-  vec3 mono = lum * uMonoColor * 1.6;
-  vec3 color = mix(mono, faceColor, uSpeechFactor) * depthBoost;
-  color += pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.35;
-  color += (vSeedY - 0.5) * 0.08;
-
-  // 원본: 얼굴 밝기가 곧 불투명도 — 배경(검정)은 자연히 사라진다
-  float faceOpacity = lum * 0.85 + 0.15 * uSpeechFactor;
-  float alpha = vFade * disc * faceOpacity * uOpacity * depthBoost;
-  if (alpha < 0.02) discard;
+  // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 원본은 화면의 약 16%가
+  // 파티클로 덮이는데, 밝기를 그대로 알파로 쓰면 어두운 쪽이 통째로 사라진다
+  float faceOpacity = mask * (0.84 + lum * 0.16);
+  float alpha = vFade * disc * faceOpacity * uOpacity;
+  if (alpha < 0.015) discard;
 
   gl_FragColor = vec4(color, alpha);
 }

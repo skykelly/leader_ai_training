@@ -9,7 +9,8 @@ export const palettes = {
   power: ['#f472b6', '#fb923c', '#8b5cf6'],
   cta: ['#a78bfa', '#f0abfc', '#22d3ee'],
   // 진단 페이지 기본 톤 — 원본 영상에서 추출한 얼굴 파티클 색(#8302af 계열)
-  faceAura: ['#5b21b6', '#a21caf', '#b06cf0'],
+  // 세 번째 색이 파티클 틴트 — 원본 영상의 밝은 점에서 직접 추출한 #8302af
+  faceAura: ['#4c0d99', '#8b0aa8', '#8302af'],
 
   // 파이오니어 유형
   visionary: ['#a78bfa', '#f0abfc', '#60a5fa'],

@@ -1,4 +1,7 @@
 <template>
+  <!-- 얼굴 파티클 뒤에 깔리는 보라 그라디언트. 원본도 배경이 검정이 아니라
+       은은한 보라라서, 이게 없으면 얼굴만 검은 공간에 떠 보인다 -->
+  <div class="aura-bg" aria-hidden="true" />
   <main class="experience">
     <Transition :css="false" mode="out-in" @enter="onEnter" @leave="onLeave">
       <ExperienceIntro v-if="phase === 'intro'" key="intro" @start="start" />
@@ -98,7 +101,23 @@ function onLeave(el: Element, done: () => void) {
 </script>
 
 <style scoped>
+.aura-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* 캔버스(0)보다 뒤 — 투명한 캔버스를 통해 비쳐 보인다 */
+  pointer-events: none;
+  /* 원본 영상 측정값: 좌상 #1a0031 · 우상 #1b003e · 좌하/우하 #000000.
+     위쪽에만 보라가 있고 아래로 갈수록 검정으로 떨어진다 */
+  background:
+    radial-gradient(64% 46% at 16% 6%, #2c0658 0%, rgba(26, 0, 49, 0.5) 44%, transparent 74%),
+    radial-gradient(56% 40% at 90% 14%, rgba(30, 0, 70, 0.68) 0%, transparent 72%),
+    linear-gradient(180deg, rgba(24, 2, 48, 0.5) 0%, rgba(10, 0, 20, 0.25) 45%, #000000 82%),
+    #000000;
+}
+
 .experience {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: flex;
   align-items: center;

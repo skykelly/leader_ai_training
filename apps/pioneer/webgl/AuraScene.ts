@@ -300,10 +300,10 @@ export class AuraScene {
     ;(this.material.uniforms.uResolution.value as THREE.Vector2).set(w, h)
     const dpr = Math.min(window.devicePixelRatio, 2)
     this.material.uniforms.uPixelRatio.value = dpr
-    // 얼굴 카메라: 세로 기준으로 얼굴(높이 2)이 화면의 약 65%를 채우게 잡고,
+    // 얼굴 카메라: 원본은 두상이 화면 세로를 거의 꽉 채운다(약 85%).
     // 세로가 긴 화면에서는 가로가 잘리지 않도록 뒤로 물린다
     this.faceCamera.aspect = w / h
-    this.faceCamera.position.z = 3.3 * Math.max(1, 0.95 / this.faceCamera.aspect)
+    this.faceCamera.position.z = 2.55 * Math.max(1, 0.95 / this.faceCamera.aspect)
     this.faceCamera.updateProjectionMatrix()
     this.face?.setPixelRatio(dpr)
     // face는 매 프레임 ratio를 반영해 재투영하므로 리사이즈로 재생성할 필요가 없다.

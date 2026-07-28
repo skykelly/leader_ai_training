@@ -30,6 +30,11 @@ onBeforeUnmount(() => aura.destroy())
   height: 100vh;
   z-index: 0;
   pointer-events: none;
+}
+
+/* 캔버스는 투명(alpha)이라 배경을 깔지 않는다 — body 배경, 또는 페이지가
+   캔버스 뒤(z-index -1)에 깐 그라디언트가 그대로 비쳐 보이게 하기 위함 */
+.aura-fallback {
   background: var(--bg);
 }
 
