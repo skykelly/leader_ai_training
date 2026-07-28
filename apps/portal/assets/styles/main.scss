@@ -91,6 +91,27 @@ img {
   overflow: hidden;
 }
 
+/* ---- 사이트 빌더 프리뷰 공용 (테마는 --sb-* 변수로 주입된다) ---- */
+.sb-container {
+  width: min(100% - 3rem, 64rem);
+  margin-inline: auto;
+}
+
+.sb-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.sb-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--sb-ink-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

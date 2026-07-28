@@ -15,6 +15,14 @@ Study Library</h1>
       </p>
     </section>
 
+    <NuxtLink to="/builder" class="builder-banner container reveal-fade">
+      <div>
+        <p class="bb-title display">나만의 스크롤리텔링 사이트 만들기</p>
+        <p class="bb-desc">섹션·배경·테마를 조합하면 즉시 미리보기되는 사이트 빌더</p>
+      </div>
+      <span class="bb-arrow display">→</span>
+    </NuxtLink>
+
     <nav class="filters container" aria-label="기법 스택 필터">
       <button class="pill" :class="{ on: activeTag === null }" type="button" @click="activeTag = null">전체</button>
       <button
@@ -104,6 +112,37 @@ onBeforeUnmount(() => split?.revert())
 .lede {
   color: var(--ink-muted);
   max-width: 40rem;
+}
+
+.builder-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  padding: 1.4rem 1.8rem;
+  margin-bottom: 2.6rem;
+  transition: border-color 0.3s var(--ease-out);
+}
+
+.builder-banner:hover {
+  border-color: var(--accent);
+}
+
+.bb-title {
+  font-size: var(--text-lg);
+  margin-bottom: 0.3rem;
+}
+
+.bb-desc {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.bb-arrow {
+  font-size: 1.6rem;
+  color: var(--accent);
 }
 
 .filters {

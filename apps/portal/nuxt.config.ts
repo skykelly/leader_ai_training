@@ -3,6 +3,9 @@ export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: false },
 
+  // 사이트 빌더가 쓰는 공유 기법 레이어 — splitRevealTween/ScrollMagneticButton/gsap 플러그인
+  extends: ['scrollkit'],
+
   components: [{ path: '~/components', pathPrefix: false }],
 
   css: [
