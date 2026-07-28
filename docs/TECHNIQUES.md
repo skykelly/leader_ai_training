@@ -17,6 +17,7 @@
 | 마그네틱 버튼 | `apps/pioneer/components/ui/MagneticButton.vue` | gsap | ✅ `ScrollMagneticButton` |
 | 얼굴 파티클(albedo/depth 텍스처 샘플링) + head tracking | `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
 | 렌더 이미지 → albedo/depth 텍스처 생성 | `scripts/make-face-textures.mjs` (ffmpeg만 사용) | — | — |
+| 음성 합성 + 발화 동기 파티클 진동 | `apps/pioneer/composables/useSpeech.ts` + `faceParticleShaders.ts`(uSpeech*) | Web Speech API, gsap | — |
 | 클릭 리플 충격파(dot 필드) | `apps/pioneer/webgl/shaders.ts`(uRipple*) + `AuraScene.ripple()` | three, gsap | — |
 | 스크롤 속도→씬 가속(flow boost) | `apps/pioneer/webgl/AuraScene.ts`(flowBoost) + `ScrollProgress.vue` | gsap ST | ✅ (Flow/Warp에 내장) |
 | 노이즈 변위 발광 구체 | `apps/lusion/webgl/{coreShaders,CoreScene}.ts` | three | — |
@@ -63,6 +64,12 @@
   클레이 렌더는 명암 폭이 좁아 `smoothstep`으로 레벨을 펴야 이목구비가 산다.
   public/ 에셋 경로는 `import.meta.env.BASE_URL`(=`/_nuxt/`)이 아니라
   `useRuntimeConfig().app.baseURL`을 써야 서브패스 배포에서 깨지지 않는다.
+- **발화 진동**: `SpeechSynthesisUtterance.onerror`에 종료 콜백을 걸면 안 된다 —
+  음성 엔진이 없는 환경(헤드리스·정책 차단)에서 즉시 발화해 모션이 시작하자마자 꺼진다.
+  종료는 글자 수로 추정한 폴백 타이머가 맡고, `onboundary`를 안 주는 엔진이 많으므로
+  단어 펄스도 자체 타이머로 만든다. 진동은 **크기 변조가 아니라 변위**로 줄 것 —
+  additive 파티클에서 point size를 키우면 겹침이 폭증해 얼굴이 흰빛으로 타버린다
+  (원본 영상은 발화 중에도 채널 포화 1% 미만).
 - **depth 맵 생성**: 조명이 위에서 오는 렌더는 밝기를 그대로 깊이로 쓰면
   이마가 코보다 앞이 된다. 저주파 조명 성분을 빼고(detrend) 실루엣 거리변환
   볼륨 + 코 중심 가우시안 prior를 합성해야 순서가 맞는다.

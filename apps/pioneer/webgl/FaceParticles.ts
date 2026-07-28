@@ -85,6 +85,7 @@ export class FaceParticles {
         uExplosion: { value: 0 },
         uOpacity: { value: 0 }, // 페이드인으로 올린다
         uSpeechFactor: { value: 0 },
+        uSpeechPulse: { value: 0 },
         uMonoColor: { value: new THREE.Color('#8302af') },
         uFaceAlbedo: { value: null },
         uFaceDepth: { value: null },
@@ -157,6 +158,26 @@ export class FaceParticles {
     gsap.timeline()
       .to(u, { value: base * 1.5, duration: 0.22, ease: 'power2.out' })
       .to(u, { value: base, duration: 0.9, ease: 'power2.inOut' })
+  }
+
+  /** 말하기 시작/끝 — 얼굴 전체가 동심원 파동으로 진동한다 */
+  setSpeaking(on: boolean) {
+    const u = this.material.uniforms.uSpeechFactor
+    gsap.killTweensOf(u)
+    gsap.to(u, {
+      value: on ? 1 : 0,
+      duration: on ? 0.35 : 0.7,
+      ease: on ? 'power2.out' : 'power2.inOut',
+    })
+  }
+
+  /** 단어 경계마다 진폭이 튄다 — 말의 리듬이 파티클에 실린다 */
+  speechPulse() {
+    const u = this.material.uniforms.uSpeechPulse
+    gsap.killTweensOf(u)
+    gsap.timeline()
+      .to(u, { value: 1, duration: 0.09, ease: 'power2.out' })
+      .to(u, { value: 0.15, duration: 0.34, ease: 'power2.inOut' })
   }
 
   /** 결과 전환 시 흩어졌다 다시 모인다 */

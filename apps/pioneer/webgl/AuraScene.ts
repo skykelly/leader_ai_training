@@ -249,6 +249,16 @@ export class AuraScene {
     this.face?.explode()
   }
 
+  /** 음성 발화 중 얼굴 파티클 진동 on/off */
+  setFaceSpeaking(on: boolean) {
+    this.face?.setSpeaking(on)
+  }
+
+  /** 단어 경계 펄스 */
+  faceSpeechPulse() {
+    this.face?.speechPulse()
+  }
+
   setIntensity(value: number, duration = 1.2) {
     gsap.to(this.material.uniforms.uIntensity, {
       value,

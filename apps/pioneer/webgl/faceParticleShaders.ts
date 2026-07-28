@@ -32,6 +32,8 @@ uniform float uPixelRatio;
 uniform float uYaw;
 uniform float uPitch;
 uniform float uExplosion;         // 결과 전환 시 확 흩어지는 연출
+uniform float uSpeechFactor;      // 발화 강도 0..1 — 말할 때 얼굴이 진동한다
+uniform float uSpeechPulse;       // 단어 경계마다 튀는 순간 값
 uniform sampler2D uFaceDepth;
 
 varying vec2 vUv;
@@ -39,6 +41,7 @@ varying float vFade;
 varying float vSeedY;
 varying float vDepth;
 varying float vLight;
+varying float vSpeechWave;
 
 // --- simplex noise (Ashima 3D) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -135,6 +138,20 @@ void main() {
   float key = max(dot(nrm, normalize(vec3(0.18, 0.3, 1.0))), 0.0);
   vLight = 0.66 + key * 0.4;
 
+  // --- 발화 진동 ---
+  // 원본 셰이더와 같은 공식: 얼굴 중심에서 바깥으로 퍼지는 동심원 파동.
+  // 말하는 동안 각 점이 이 파동을 타고 앞뒤로 떨리고 크기가 맥동한다.
+  float distanceCenter = distance(uv, vec2(0.5));
+  float distanceFactor = 1.0 - distanceCenter * 2.0;
+  float waveFactor = cos(distanceFactor * 5.0 + uTime * 5.0) * 0.5 + 0.5;
+  // 점마다 위상을 흩어 한 덩어리로 출렁이지 않고 알갱이처럼 떨리게 한다
+  float grain = sin(uTime * 26.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
+  float speech = uSpeechFactor * (0.55 + uSpeechPulse * 0.45);
+  vSpeechWave = waveFactor * speech;
+  // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게
+  pos.z += (waveFactor - 0.5) * speech * 0.42;
+  pos.xy += normalize(aInitialPos.xy + 0.0001) * (grain - 0.5) * speech * 0.03;
+
   // 바람장을 따라 수명 동안 누적 이동 — 얼굴에서 연기처럼 흘러나온다.
   // 이동량이 크면 형상이 뭉개지므로, 수명 후반부로 갈수록 서서히 풀리게 한다
   vec3 flow = curl(pos * uNoiseFrequency + vec3(0.0, 0.0, uTime * 0.08));
@@ -151,8 +168,11 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // 원본과 동일하게 카메라 거리로 크기를 감쇠시킨다
-  float size = uParticleScale + aSeed.x * uScaleVariation;
+  // 원본과 동일하게 카메라 거리로 크기를 감쇠시킨다.
+  // 발화 중에는 파동에 맞춰 알갱이가 커졌다 작아지며 반짝인다.
+  // 계수를 크게 잡으면(0.5 이상) additive 겹침이 폭증해 얼굴이 마젠타로 타버린다 —
+  // 원본 영상은 발화 중에도 채널 포화가 1% 미만이므로 크기 변조는 얕게 준다
+  float size = (uParticleScale + aSeed.x * uScaleVariation) * (1.0 + vSpeechWave * 0.18);
   gl_PointSize = size * uPixelRatio / max(0.2, -mvPosition.z);
 }
 `
@@ -162,7 +182,6 @@ precision highp float;
 
 uniform sampler2D uFaceAlbedo;
 uniform vec3 uMonoColor;      // 단색 틴트(팔레트 색)
-uniform float uSpeechFactor;  // 0=단색, 1=원본 색
 uniform float uOpacity;       // 원본: 0.75
 uniform float uTime;
 
@@ -171,6 +190,7 @@ varying float vFade;
 varying float vSeedY;
 varying float vDepth;
 varying float vLight;
+varying float vSpeechWave;
 
 const float BORDER = 0.02;
 const float DISC_RADIUS = 0.5;
@@ -193,10 +213,13 @@ void main() {
   // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
   // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
   // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
-  vec3 mono = lum * uMonoColor * 0.38;
-  vec3 color = mix(mono, faceColor * 0.38, uSpeechFactor);
+  vec3 color = lum * uMonoColor * 0.38;
   color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.07;
   color += (vSeedY - 0.5) * 0.03;
+  // 파동의 마루에 있는 점이 밝아져 얼굴 위로 빛의 띠가 퍼져나간다.
+  // 틴트 색으로만 더한다 — albedo 쪽으로 섞으면 발화 중 보라가 흰빛으로 바래
+  // 원본의 인상과 멀어진다
+  color += uMonoColor * vSpeechWave * 0.05;
 
   // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 원본은 화면의 약 16%가
   // 파티클로 덮이는데, 밝기를 그대로 알파로 쓰면 어두운 쪽이 통째로 사라진다
