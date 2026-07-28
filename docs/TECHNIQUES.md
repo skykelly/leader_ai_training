@@ -15,7 +15,8 @@
 | SplitText 글자 리빌 | `apps/*/composables/useSplitReveal.ts` (8앱 동일) | gsap SplitText | ✅ `splitRevealTween` |
 | 커스텀 커서(점+링 이중 추적) | `apps/pioneer/components/app/AppCursor.vue` | gsap | ✅ `ScrollCursor` |
 | 마그네틱 버튼 | `apps/pioneer/components/ui/MagneticButton.vue` | gsap | ✅ `ScrollMagneticButton` |
-| 얼굴 point cloud + head tracking | `apps/pioneer/webgl/FaceCloud.ts` + `AuraScene.ts`(face 분기) | three | — |
+| 얼굴 파티클(albedo/depth 텍스처 샘플링) + head tracking | `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
+| 렌더 이미지 → albedo/depth 텍스처 생성 | `scripts/make-face-textures.mjs` (ffmpeg만 사용) | — | — |
 | 클릭 리플 충격파(dot 필드) | `apps/pioneer/webgl/shaders.ts`(uRipple*) + `AuraScene.ripple()` | three, gsap | — |
 | 스크롤 속도→씬 가속(flow boost) | `apps/pioneer/webgl/AuraScene.ts`(flowBoost) + `ScrollProgress.vue` | gsap ST | ✅ (Flow/Warp에 내장) |
 | 노이즈 변위 발광 구체 | `apps/lusion/webgl/{coreShaders,CoreScene}.ts` | three | — |
@@ -56,6 +57,15 @@
   정방향(edge0<edge1)만 — 역방향은 SwiftShader(검증 환경)에서 0이 나온다.
 - **flow field**: 좌표계가 물리 비율 기준 — x∈[-ratio, ratio], y∈[-1,1], ratio=w/h.
   화면 좌표를 넘길 때 x에 ratio를 곱해야 한다(클릭 리플의 `nx * ratio` 참조).
+- **얼굴 파티클**: 파티클의 초기 격자 위치 xy가 그대로 텍스처 UV다. albedo의
+  밝기가 알파가 되어 배경(검정)이 저절로 투명해지고, depth가 z를 민다.
+  상태를 누적하지 않고 `fract(t/life)` 위상만으로 수명을 돌려 CPU 갱신이 없다.
+  클레이 렌더는 명암 폭이 좁아 `smoothstep`으로 레벨을 펴야 이목구비가 산다.
+  public/ 에셋 경로는 `import.meta.env.BASE_URL`(=`/_nuxt/`)이 아니라
+  `useRuntimeConfig().app.baseURL`을 써야 서브패스 배포에서 깨지지 않는다.
+- **depth 맵 생성**: 조명이 위에서 오는 렌더는 밝기를 그대로 깊이로 쓰면
+  이마가 코보다 앞이 된다. 저주파 조명 성분을 빼고(detrend) 실루엣 거리변환
+  볼륨 + 코 중심 가우시안 prior를 합성해야 순서가 맞는다.
 - **오빗 링**: 궤도선을 추가할 때 JS 점열 수식이 ringVertex 셰이더 수식
   `(r·cosθ, −r·sinθ·sinI, r·sinθ·cosI)`와 **정확히 일치**해야 노드가 선 위에 올라탄다.
 - **파티클 모프**: 세 셰이프 attribute는 정점 수가 같아야 한다. 리플은 `aRandom` 재사용 —

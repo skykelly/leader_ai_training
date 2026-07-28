@@ -30,7 +30,7 @@ const aura = useAura()
 
 onMounted(() => {
   aura.setMode('face')
-  aura.setPalette('faceBlue', 0.6)
+  aura.setPalette('faceAura', 0.6)
   aura.setIntensity(1.1)
 })
 
@@ -51,6 +51,14 @@ function answer(choice: Choice) {
   }
   if (dominant) aura.setPalette(personas[dominant].palette, 1)
   aura.pulse()
+  // 원본처럼 답변이 얼굴 파티클의 생김새 자체를 바꾼다 — 질문이 진행될수록
+  // 파티클이 잘게 흩어지거나(디테일) 크고 느리게(구름) 변한다
+  const t = (step.value + 1) / questions.length
+  aura.setFacePersona({
+    scale: 20 - t * 5 + max * 2,
+    noiseScale: 0.34 + t * 0.3,
+    speed: 3.4 - t * 1.1,
+  })
 
   if (step.value < questions.length - 1) {
     step.value += 1
@@ -64,6 +72,8 @@ function finish() {
   result.value = personas[winner]
   aura.setPalette(personas[winner].palette, 2)
   aura.setIntensity(1.5, 2)
+  // 결과 공개 순간 얼굴이 한 번 흩어졌다 다시 모인다
+  aura.faceExplode()
   phase.value = 'result'
 }
 
@@ -71,8 +81,9 @@ function restart() {
   scores.value = { visionary: 0, explorer: 0, catalyst: 0, guardian: 0 }
   step.value = 0
   result.value = null
-  aura.setPalette('faceBlue')
+  aura.setPalette('faceAura')
   aura.setIntensity(1.1)
+  aura.setFacePersona({ scale: 18.5, noiseScale: 0.4, speed: 3 })
   phase.value = 'intro'
 }
 

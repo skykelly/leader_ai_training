@@ -19,7 +19,9 @@ export function useAura() {
   async function init(canvas: HTMLCanvasElement) {
     if (scene) return scene
     const { AuraScene } = await import('~/webgl/AuraScene')
-    scene = new AuraScene(canvas, pendingMode ?? 'flow', pendingPalette?.name ?? 'hero')
+    // public/ 에셋 경로는 앱 base URL 기준 — GitHub Pages 서브패스 배포에서도 맞아야 한다
+    const baseURL = useRuntimeConfig().app.baseURL || '/'
+    scene = new AuraScene(canvas, pendingMode ?? 'flow', pendingPalette?.name ?? 'hero', baseURL)
     if (pendingMode) scene.setMode(pendingMode)
     if (pendingPalette) scene.setPalette(pendingPalette.name, pendingPalette.duration)
     if (pendingIntensity) scene.setIntensity(pendingIntensity.value, pendingIntensity.duration)
@@ -55,5 +57,8 @@ export function useAura() {
     setScroll: (p: number) => scene?.setScroll(p),
     setFlowBoost: (v: number) => scene?.setFlowBoost(v),
     pulse: () => scene?.pulse(),
+    setFacePersona: (params: { scale?: number; noiseScale?: number; speed?: number }) =>
+      scene?.setFacePersona(params),
+    faceExplode: () => scene?.faceExplode(),
   }
 }

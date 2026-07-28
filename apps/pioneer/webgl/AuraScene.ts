@@ -3,7 +3,7 @@ import gsap from 'gsap'
 import { dotVertex, dotFragment } from './shaders'
 import { palettes, type PaletteName } from './palettes'
 import { FlowField } from './FlowField'
-import { FaceCloud } from './FaceCloud'
+import { FaceParticles } from './FaceParticles'
 
 const ROWS = 36
 const MAX_DOTS = 6000
@@ -38,10 +38,21 @@ export class AuraScene {
 
   private mode: AuraMode = 'flow'
   private flow: FlowField | null = null
-  private face: FaceCloud | null = null
+  // 얼굴은 텍스처 기반 파티클로 별도 Points/카메라를 갖는다(원근이 필요하다)
+  private face: FaceParticles | null = null
+  private faceCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
+  private baseUrl = '/'
 
-  constructor(canvas: HTMLCanvasElement, initialMode: AuraMode = 'flow', initialPalette: PaletteName = 'hero') {
+  constructor(
+    canvas: HTMLCanvasElement,
+    initialMode: AuraMode = 'flow',
+    initialPalette: PaletteName = 'hero',
+    // Nuxt의 앱 base URL. import.meta.env.BASE_URL은 빌드 에셋 경로(/_nuxt/)라
+    // public/ 파일에는 쓸 수 없어 호출 측에서 runtimeConfig 값을 넘겨받는다
+    baseUrl = '/',
+  ) {
     this.mode = initialMode
+    this.baseUrl = baseUrl
     const initColors = palettes[initialPalette]
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setClearColor(0x000000, 0)
@@ -124,12 +135,11 @@ export class AuraScene {
         this.flow.step(dt * (1 + this.flowBoost * 2.5), now, ratio)
         if (posAttr) posAttr.needsUpdate = true
       } else if (this.mode === 'face' && this.face) {
-        this.face.setTarget(mouse.x, mouse.y)
-        this.face.step(dt, now, ratio)
-        if (posAttr) posAttr.needsUpdate = true
+        this.face.update(now, mouse.x, mouse.y)
       }
 
-      this.renderer.render(this.scene, this.camera)
+      // 얼굴 파티클은 원근 카메라로, dot 필드는 정투영으로 그린다
+      this.renderer.render(this.scene, this.mode === 'face' ? this.faceCamera : this.camera)
     }
     gsap.ticker.add(this.tickerFn)
   }
@@ -174,10 +184,20 @@ export class AuraScene {
       const count = this.flowCountFor(ratio)
       this.flow = new FlowField(count, ratio)
       this.allocateGeometry(this.flow.positions, this.flow.randoms)
-    } else {
-      this.face = new FaceCloud()
-      this.allocateGeometry(this.face.positions, this.face.randoms, this.face.features)
+    } else if (!this.face) {
+      // 얼굴 파티클은 텍스처 로드가 필요해 한 번만 만들고 재사용한다.
+      // 좁은 화면에서는 격자를 줄여 파티클 수를 낮춘다(228² → 160²).
+      const base = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`
+      this.face = new FaceParticles({
+        albedoUrl: `${base}face/face-albedo.png`,
+        depthUrl: `${base}face/face-depth.png`,
+        grid: window.innerWidth < 760 ? 160 : undefined,
+      })
+      this.scene.add(this.face.points)
     }
+    // 모드에 맞는 것만 보이게 한다
+    this.points.visible = this.mode === 'flow'
+    if (this.face) this.face.points.visible = this.mode === 'face'
   }
 
   private flowCountFor(ratio: number) {
@@ -215,6 +235,18 @@ export class AuraScene {
         overwrite: 'auto',
       })
     }
+    // 얼굴 파티클도 같은 팔레트의 하이라이트 색으로 물든다
+    this.face?.setColor(c, duration)
+  }
+
+  /** 진단 답변에 따라 얼굴 파티클의 생김새를 바꾼다(원본의 개인화 방식) */
+  setFacePersona(params: { scale?: number; noiseScale?: number; speed?: number }) {
+    this.face?.setPersona(params)
+  }
+
+  /** 결과 전환 시 얼굴이 흩어졌다 다시 모인다 */
+  faceExplode() {
+    this.face?.explode()
   }
 
   setIntensity(value: number, duration = 1.2) {
@@ -233,6 +265,7 @@ export class AuraScene {
       .timeline()
       .to(u, { value: u.value + 0.5, duration: 0.25, ease: 'power2.out' })
       .to(u, { value: 1, duration: 0.9, ease: 'power2.inOut' })
+    if (this.mode === 'face') this.face?.pulse()
   }
 
   setScroll(progress: number) {
@@ -265,7 +298,14 @@ export class AuraScene {
     const h = window.innerHeight
     this.renderer.setSize(w, h)
     ;(this.material.uniforms.uResolution.value as THREE.Vector2).set(w, h)
-    this.material.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2)
+    const dpr = Math.min(window.devicePixelRatio, 2)
+    this.material.uniforms.uPixelRatio.value = dpr
+    // 얼굴 카메라: 세로 기준으로 얼굴(높이 2)이 화면의 약 65%를 채우게 잡고,
+    // 세로가 긴 화면에서는 가로가 잘리지 않도록 뒤로 물린다
+    this.faceCamera.aspect = w / h
+    this.faceCamera.position.z = 3.3 * Math.max(1, 0.95 / this.faceCamera.aspect)
+    this.faceCamera.updateProjectionMatrix()
+    this.face?.setPixelRatio(dpr)
     // face는 매 프레임 ratio를 반영해 재투영하므로 리사이즈로 재생성할 필요가 없다.
     // flow는 화면을 채우는 점 개수·랩어라운드 경계가 비율에 의존하므로 다시 만든다.
     const noDriverYet = !this.flow && !this.face
@@ -280,6 +320,7 @@ export class AuraScene {
     window.removeEventListener('resize', this.onResize)
     window.removeEventListener('pointermove', this.onPointerMove)
     window.removeEventListener('pointerdown', this.onPointerDown)
+    this.face?.dispose()
     this.geometry.dispose()
     this.renderer.dispose()
     this.material.dispose()
