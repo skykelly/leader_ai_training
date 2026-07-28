@@ -1,7 +1,14 @@
 <template>
   <!-- 얼굴 파티클 뒤에 깔리는 보라 그라디언트. 원본도 배경이 검정이 아니라
        은은한 보라라서, 이게 없으면 얼굴만 검은 공간에 떠 보인다 -->
-  <div class="aura-bg" aria-hidden="true" />
+  <div class="aura-bg" aria-hidden="true">
+    <!-- 원본 배경을 가로지르는 점선 타원 궤도 — 화면 밖까지 이어져 공간감을 준다 -->
+    <svg class="orbit-rings" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice">
+      <ellipse cx="500" cy="350" rx="486" ry="336" transform="rotate(-7 500 350)" />
+      <ellipse cx="520" cy="336" rx="392" ry="288" transform="rotate(9 520 336)" />
+      <ellipse cx="486" cy="360" rx="312" ry="352" transform="rotate(-16 486 360)" />
+    </svg>
+  </div>
   <main class="experience">
     <Transition :css="false" mode="out-in" @enter="onEnter" @leave="onLeave">
       <ExperienceIntro v-if="phase === 'intro'" key="intro" @start="start" />
@@ -106,13 +113,42 @@ function onLeave(el: Element, done: () => void) {
   inset: 0;
   z-index: -1; /* 캔버스(0)보다 뒤 — 투명한 캔버스를 통해 비쳐 보인다 */
   pointer-events: none;
-  /* 원본 영상 측정값: 좌상 #1a0031 · 우상 #1b003e · 좌하/우하 #000000.
-     위쪽에만 보라가 있고 아래로 갈수록 검정으로 떨어진다 */
+  /* 원본 영상 그리드 측정값 — 우측 상·중단이 가장 밝고(#29005e) 좌측은
+     중간(#1a002f), 아래로 갈수록 검정(#000000)으로 떨어진다 */
   background:
-    radial-gradient(64% 46% at 16% 6%, #2c0658 0%, rgba(26, 0, 49, 0.5) 44%, transparent 74%),
-    radial-gradient(56% 40% at 90% 14%, rgba(30, 0, 70, 0.68) 0%, transparent 72%),
-    linear-gradient(180deg, rgba(24, 2, 48, 0.5) 0%, rgba(10, 0, 20, 0.25) 45%, #000000 82%),
+    radial-gradient(78% 66% at 84% 26%, #46108c 0%, rgba(52, 4, 108, 0.82) 30%, rgba(33, 0, 74, 0.5) 56%, transparent 80%),
+    radial-gradient(62% 52% at 12% 12%, rgba(38, 2, 72, 0.85) 0%, rgba(26, 0, 47, 0.45) 48%, transparent 78%),
+    radial-gradient(120% 80% at 50% 4%, rgba(40, 4, 84, 0.55) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(30, 2, 62, 0.6) 0%, rgba(12, 0, 26, 0.3) 46%, #000000 84%),
     #000000;
+}
+
+.orbit-rings {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  fill: none;
+  stroke: rgba(196, 150, 255, 0.34);
+  stroke-width: 1.1;
+  stroke-dasharray: 1 13;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+/* 원본 배경에 흩뿌려진 미세한 점 — 크기가 다른 두 격자를 겹쳐 규칙성을 감춘다 */
+.aura-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(214, 178, 255, 0.55) 0.6px, transparent 1.4px),
+    radial-gradient(circle, rgba(180, 130, 255, 0.4) 0.5px, transparent 1.2px);
+  background-size: 68px 68px, 113px 97px;
+  background-position: 0 0, 31px 17px;
+  /* 위쪽·오른쪽에서 진하고 아래로 사라지게 — 배경 그라디언트와 같은 흐름 */
+  -webkit-mask-image: radial-gradient(96% 78% at 62% 22%, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 82%);
+  mask-image: radial-gradient(96% 78% at 62% 22%, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 82%);
 }
 
 .experience {

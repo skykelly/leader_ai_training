@@ -94,6 +94,16 @@ console.log(`크롭: 중심(${cx.toFixed(0)}, ${cy.toFixed(0)}) 한 변 ${cropSi
 const albedo = Buffer.alloc(SIZE * SIZE * 3)
 const shade = new Float32Array(SIZE * SIZE)
 const mask = new Uint8Array(SIZE * SIZE)
+const soft = new Float32Array(SIZE * SIZE) // 가장자리 페이드 계수
+
+// 귀는 두상 실루엣 밖으로 튀어나와 파티클로 그리면 형태가 지저분해진다.
+// 세로로 긴 타원 밖을 부드럽게 잘라 귀를 지운다(원본도 귀가 드러나지 않는다).
+const EAR_RX = 0.355
+const EAR_RY = 0.52
+function smooth01(edge0, edge1, x) {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)))
+  return t * t * (3 - 2 * t)
+}
 
 for (let j = 0; j < SIZE; j++) {
   for (let i = 0; i < SIZE; i++) {
@@ -101,17 +111,23 @@ for (let j = 0; j < SIZE; j++) {
     const sy = Math.round(cy + (j / SIZE - 0.5) * cropSize)
     const o = j * SIZE + i
     if (sx < 0 || sx >= W || sy < 0 || sy >= H || sy > cropBottom || !isFg(sx, sy)) continue
+    const ex = (i / SIZE - 0.5) / EAR_RX
+    const ey = (j / SIZE - 0.5) / EAR_RY
+    const er = Math.sqrt(ex * ex + ey * ey)
+    const keep = 1 - smooth01(0.9, 1.04, er)
+    if (keep <= 0.02) continue
+    soft[o] = keep
     mask[o] = 1
     const [r, g, b] = rgbAt(sx, sy)
     // 클레이 색을 그대로 쓰되 배경 대비로 정규화 — 셰이더가 밝기를 알파로 쓰므로
     // 어두운 배경이 자연스럽게 투명이 된다
     const l = lumAt(sx, sy)
     const norm = Math.max(0, Math.min(1, (l - bg * 0.9) / (1 - bg * 0.9)))
-    const scale = l > 0 ? norm / l : 0
+    const scale = l > 0 ? (norm * keep) / l : 0
     albedo[o * 3] = Math.min(255, Math.round(r * scale))
     albedo[o * 3 + 1] = Math.min(255, Math.round(g * scale))
     albedo[o * 3 + 2] = Math.min(255, Math.round(b * scale))
-    shade[o] = norm
+    shade[o] = norm * keep
   }
 }
 const fgCount = mask.reduce((a, b) => a + b, 0)

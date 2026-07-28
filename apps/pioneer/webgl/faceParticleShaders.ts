@@ -193,8 +193,8 @@ void main() {
   // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
   // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
   // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
-  vec3 mono = lum * uMonoColor * 0.46;
-  vec3 color = mix(mono, faceColor * 0.46, uSpeechFactor);
+  vec3 mono = lum * uMonoColor * 0.38;
+  vec3 color = mix(mono, faceColor * 0.38, uSpeechFactor);
   color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.07;
   color += (vSeedY - 0.5) * 0.03;
 
