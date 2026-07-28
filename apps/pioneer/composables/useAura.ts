@@ -60,7 +60,7 @@ export function useAura() {
     setFacePersona: (params: { scale?: number; noiseScale?: number; speed?: number }) =>
       scene?.setFacePersona(params),
     faceExplode: () => scene?.faceExplode(),
-    setFaceSpeaking: (on: boolean) => scene?.setFaceSpeaking(on),
-    faceSpeechPulse: () => scene?.faceSpeechPulse(),
+    setFaceTyping: (on: boolean) => scene?.setFaceTyping(on),
+    faceTypePulse: () => scene?.faceTypePulse(),
   }
 }

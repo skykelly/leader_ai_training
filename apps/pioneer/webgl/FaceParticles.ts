@@ -84,8 +84,8 @@ export class FaceParticles {
         uPitch: { value: 0 },
         uExplosion: { value: 0 },
         uOpacity: { value: 0 }, // 페이드인으로 올린다
-        uSpeechFactor: { value: 0 },
-        uSpeechPulse: { value: 0 },
+        uTypeFactor: { value: 0 },
+        uTypePulse: { value: 0 },
         uMonoColor: { value: new THREE.Color('#8302af') },
         uFaceAlbedo: { value: null },
         uFaceDepth: { value: null },
@@ -160,24 +160,28 @@ export class FaceParticles {
       .to(u, { value: base, duration: 0.9, ease: 'power2.inOut' })
   }
 
-  /** 말하기 시작/끝 — 얼굴 전체가 동심원 파동으로 진동한다 */
-  setSpeaking(on: boolean) {
-    const u = this.material.uniforms.uSpeechFactor
+  /** 문장 출력 시작/끝 — 얼굴 전체가 동심원 파동으로 진동한다 */
+  setTyping(on: boolean) {
+    const u = this.material.uniforms.uTypeFactor
     gsap.killTweensOf(u)
     gsap.to(u, {
       value: on ? 1 : 0,
-      duration: on ? 0.35 : 0.7,
+      duration: on ? 0.28 : 0.7,
       ease: on ? 'power2.out' : 'power2.inOut',
     })
   }
 
-  /** 단어 경계마다 진폭이 튄다 — 말의 리듬이 파티클에 실린다 */
-  speechPulse() {
-    const u = this.material.uniforms.uSpeechPulse
+  /**
+   * 글자가 찍힐 때마다 진폭이 튄다 — 타이핑 리듬이 그대로 파티클에 실린다.
+   * 감쇠가 글자 간격(약 58ms)보다 길면 값이 최대치에 눌러앉아 리듬이 사라지므로
+   * 짧게 올렸다 빠르게 떨어뜨린다.
+   */
+  typePulse() {
+    const u = this.material.uniforms.uTypePulse
     gsap.killTweensOf(u)
     gsap.timeline()
-      .to(u, { value: 1, duration: 0.09, ease: 'power2.out' })
-      .to(u, { value: 0.15, duration: 0.34, ease: 'power2.inOut' })
+      .to(u, { value: 1, duration: 0.03, ease: 'power2.out' })
+      .to(u, { value: 0.12, duration: 0.11, ease: 'power2.in' })
   }
 
   /** 결과 전환 시 흩어졌다 다시 모인다 */

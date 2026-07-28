@@ -249,14 +249,14 @@ export class AuraScene {
     this.face?.explode()
   }
 
-  /** 음성 발화 중 얼굴 파티클 진동 on/off */
-  setFaceSpeaking(on: boolean) {
-    this.face?.setSpeaking(on)
+  /** 문장이 타이핑되는 동안 얼굴 파티클 진동 on/off */
+  setFaceTyping(on: boolean) {
+    this.face?.setTyping(on)
   }
 
-  /** 단어 경계 펄스 */
-  faceSpeechPulse() {
-    this.face?.speechPulse()
+  /** 글자 단위 펄스 */
+  faceTypePulse() {
+    this.face?.typePulse()
   }
 
   setIntensity(value: number, duration = 1.2) {
