@@ -95,11 +95,12 @@ export class FaceParticles {
         uTypePulse: { value: 0 },
         // 비활성 링은 큰 음수 — 나이가 수명을 넘어 셰이더에서 걸러진다
         uRingT: { value: new Array(FACE_RINGS).fill(-999) },
-        // 링은 약 0.7초면 얼굴 밖으로 빠져나간다. 수명을 그보다 길게 잡으면
+        // 링은 약 0.85초면 얼굴 밖으로 빠져나간다. 수명을 그보다 훨씬 길게 잡으면
         // 단어 간격(0.4~0.6초)당 링이 서너 겹씩 쌓여 다시 출렁임으로 뭉개진다
-        uRingLife: { value: 1.15 },
-        uRingSpeed: { value: 0.5 },
-        uRingWidth: { value: 0.085 },
+        uRingLife: { value: 1.3 },
+        uRingSpeed: { value: 0.42 },
+        // 띠가 두꺼우면 파문이 아니라 덩어리가 지나가는 모양이 된다
+        uRingWidth: { value: 0.055 },
         uMonoColor: { value: new THREE.Color('#8302af') },
         uFaceAlbedo: { value: null },
         uFaceDepth: { value: null },

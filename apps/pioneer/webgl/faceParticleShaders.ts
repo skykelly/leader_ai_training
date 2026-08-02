@@ -149,31 +149,42 @@ void main() {
   vLight = 0.66 + key * 0.4;
 
   // --- 문장 출력 진동 ---
-  // 단어마다 링 하나가 얼굴 중심에서 태어나 바깥으로 퍼지며 사라진다.
+  // 단어마다 파문 하나가 얼굴 중심에서 태어나 바깥으로 퍼지며 잦아든다.
   //
-  // 무한 사인파(cos(d*k + t*w))로 만들면 링이 여러 겹 동시에 깔려 "퍼져나간다"가
-  // 아니라 "얼굴 전체가 출렁인다"로 읽힌다. 그래서 각 링의 탄생 시각을 배열로
-  // 받아 나이(age)로 반지름을 키우고 수명이 다하면 스스로 꺼지게 했다.
-  // 링은 uTypeFactor에 곱하지 않는다 — 마지막 단어의 링이 끝까지 퍼져야 한다.
+  // 설계상 중요한 세 가지(각각 빠지면 "출렁임"으로 되돌아간다):
+  //  1) 파형은 가우시안의 **미분**이다. 양의 봉우리(exp(-x²))만 쓰면 띠 안의 점이
+  //     전부 같은 방향으로 부풀어 덩어리가 지나가는 모양이 된다. 미분형은 골과
+  //     마루가 한 쌍이라 수면의 파문처럼 지나간 자리가 제자리로 돌아온다.
+  //  2) 태어날 때 서서히 켜진다. 나이 0에서는 반지름도 0이라 얼굴 중앙 전체가
+  //     한 점에 겹치는데, 거기서 최대 진폭이면 중앙이 통째로 튄다.
+  //  3) 퍼질수록 진폭이 준다. 실제 파문도 원주가 커지는 만큼 에너지가 흩어진다.
   float distanceCenter = distance(uv, vec2(0.5));
-  float ringAmp = 0.0;
+  float ringWave = 0.0; // 부호 있는 변위 (골/마루)
+  float ringGlow = 0.0; // 밝기·크기용 (절댓값 성분)
   for (int i = 0; i < FACE_RINGS; i++) {
     float age = uTime - uRingT[i];
     if (age < 0.0 || age > uRingLife) continue;
+    float t = age / uRingLife;
     float radius = age * uRingSpeed;
-    float d = (distanceCenter - radius) / uRingWidth;
-    // 링 마루는 가우시안 밴드, 진폭은 수명에 따라 선형 감쇠
-    ringAmp += exp(-d * d) * (1.0 - age / uRingLife);
+    float x = (distanceCenter - radius) / uRingWidth;
+    float bell = exp(-x * x);
+    float birth = smoothstep(0.0, 0.16, t);          // 태어날 때 서서히
+    float death = 1.0 - smoothstep(0.28, 1.0, t);    // 이른 시점부터 길게 잦아들며
+    float spread = 1.0 / (1.0 + radius * 9.0);       // 퍼질수록 얕게
+    float amp = birth * death * spread;
+    ringWave += -2.0 * x * bell * amp;
+    ringGlow += bell * amp;
   }
-  ringAmp = min(ringAmp, 1.4);
 
   // 점마다 위상을 흩어 한 덩어리로 출렁이지 않고 알갱이처럼 떨리게 한다
   float grain = sin(uTime * 12.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
   float drive = uTypeFactor * (0.55 + uTypePulse * 0.45);
-  vTypeWave = ringAmp;
-  // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게
-  pos.z += ringAmp * 0.34;
-  pos.xy += normalize(aInitialPos.xy + 0.0001) * (grain - 0.5) * drive * 0.03;
+  vTypeWave = ringGlow;
+  // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게.
+  // 표면을 따라 바깥으로도 살짝 밀어 파문이 지나간 자리가 벌어졌다 모인다
+  pos.z += ringWave * 0.085;
+  pos.xy += normalize(aInitialPos.xy + 0.0001) * ringWave * 0.022;
+  pos.xy += normalize(aInitialPos.xy + 0.0001) * (grain - 0.5) * drive * 0.018;
 
   // 바람장을 따라 수명 동안 누적 이동 — 얼굴에서 연기처럼 흘러나온다.
   // 이동량이 크면 형상이 뭉개지므로, 수명 후반부로 갈수록 서서히 풀리게 한다
