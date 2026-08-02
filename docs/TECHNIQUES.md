@@ -15,8 +15,9 @@
 | SplitText 글자 리빌 | `apps/*/composables/useSplitReveal.ts` (8앱 동일) | gsap SplitText | ✅ `splitRevealTween` |
 | 커스텀 커서(점+링 이중 추적) | `apps/pioneer/components/app/AppCursor.vue` | gsap | ✅ `ScrollCursor` |
 | 마그네틱 버튼 | `apps/pioneer/components/ui/MagneticButton.vue` | gsap | ✅ `ScrollMagneticButton` |
-| 얼굴 파티클(albedo/depth 텍스처 샘플링) + head tracking | `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
-| 렌더 이미지 → albedo/depth 텍스처 생성 | `scripts/make-face-textures.mjs` (ffmpeg만 사용) | — | — |
+| 얼굴 윤곽 파티클(수식 정의 곡선 위 배치) + head tracking | `apps/pioneer/webgl/{contourShape,FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
+| 얼굴 파티클(albedo/depth 텍스처 샘플링) | `visual/face-particles` 브랜치의 `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
+| 렌더 이미지 → albedo/depth 텍스처 생성 | `scripts/make-face-textures.mjs` (ffmpeg만 사용, 위 브랜치와 짝) | — | — |
 | 타이핑 텍스트 출력 + 출력 동기 파티클 진동 | `apps/pioneer/components/experience/TypedText.vue` + `composables/{useTypewriter,useFaceType}.ts` + `faceParticleShaders.ts`(uType*) | gsap | — |
 | 클릭 리플 충격파(dot 필드) | `apps/pioneer/webgl/shaders.ts`(uRipple*) + `AuraScene.ripple()` | three, gsap | — |
 | 스크롤 속도→씬 가속(flow boost) | `apps/pioneer/webgl/AuraScene.ts`(flowBoost) + `ScrollProgress.vue` | gsap ST | ✅ (Flow/Warp에 내장) |
@@ -78,6 +79,14 @@
   줄이 접혀 `max-width: Nch`의 결과 줄 수가 달라진다 — 폭을 다시 잡을 것.
   진동은 **크기 변조가 아니라 변위**로 줄 것 — additive 파티클에서 point size를 키우면
   겹침이 폭증해 얼굴이 마젠타로 타버린다.
+- **윤곽선 파티클**: 격자를 깔고 마스킹하면 윤곽만 남길 때 파티클의 90%가 버려진다 —
+  곡선 위에 직접 배치할 것. θ를 균등 샘플링하면 곡률이 큰 정수리·턱에 점이 뭉쳐
+  선의 밝기가 위아래로 몰리므로 **누적 호길이의 역함수**로 뽑는다.
+  접선 방향 흐름은 누적시키지 말고 `sin(phase·π)`로 왕복시킬 것(누적하면 수명 끝에
+  곡선을 벗어난 자리에서 사라져 윤곽이 번진다). 끝점(정수리·턱)은 접선이 수평이라
+  흐름이 곡선 밖으로 빠져나가 X자로 교차하므로 접선에 끝점 감쇠를 실어 보낸다.
+  V라인은 원과 마름모를 섞어 만들되(마름모 비중↑ = 곧은 턱선) **끝에서는 다시
+  원으로 되돌려야** 한다 — 끝까지 섞으면 턱이 바늘처럼 뾰족한 방패꼴이 된다.
 - **확산 링(동심원)**: `cos(d*k + t*w)` 무한 사인파는 링이 여러 겹 동시에 깔려
   "퍼져나간다"가 아니라 "전체가 출렁인다"로 읽힌다. 링마다 탄생 시각을 배열
   uniform으로 받아 나이로 반지름을 키우고 수명이 다하면 꺼지게 할 것.
@@ -91,6 +100,9 @@
   잡는다(글자마다가 아니라 단어마다 쏘는 이유). 링은 `uTypeFactor`에 곱하지 말 것 —
   마지막 단어의 링이 끝까지 퍼져야 한다. 검증은 같은 uTime에서 링만 껐다 켠 두 장의
   차이의 **반경 가중 평균**이 나이에 따라 단조 증가하는지로 본다.
+  윤곽선만 남은 구성에서는 중심 기준 동심원이 성립하지 않는다 — 선 위의 점은 중심에서
+  거의 같은 거리라 파문이 전체에 동시에 닿아 다시 출렁임이 된다. 이때는 퍼지는 좌표를
+  반지름이 아니라 **선을 따라 잰 호길이**(정수리 0 → 턱 1)로 잡는다.
 - **depth 맵 생성**: 조명이 위에서 오는 렌더는 밝기를 그대로 깊이로 쓰면
   이마가 코보다 앞이 된다. 저주파 조명 성분을 빼고(detrend) 실루엣 거리변환
   볼륨 + 코 중심 가우시안 prior를 합성해야 순서가 맞는다.

@@ -1,16 +1,15 @@
 /**
- * 얼굴 파티클 셰이더 — preparetopioneer.com/experience의 구조를 따른다.
+ * 얼굴 윤곽 파티클 셰이더.
  *
- * 원본 구조(번들 분석으로 확인):
- *   - 파티클의 "초기 격자 위치 xy"가 그대로 얼굴 텍스처의 UV가 된다
- *   - depth 텍스처로 z를 밀어 입체를 만들고, albedo 색이 파티클 색이 된다
- *   - albedo의 밝기가 알파를 결정해(어두운 배경 = 투명) 얼굴 형태가 드러난다
- *   - 각 파티클은 수명(lifeSpan)을 돌며 페이드 인/아웃하고 초기 위치에서 재시작
- *   - 노이즈 바람장을 따라 천천히 흘러 흩어진다
+ * 이목구비를 버리고 윤곽선(계란형 + V라인)만 남긴 구성이다. 형태는 CPU에서
+ * 수식으로 계산해 파티클을 윤곽선 위에 직접 배치하므로(`contourShape.ts`)
+ * 셰이더는 위치를 만들지 않고 **움직임만** 담당한다:
+ *   - 수명 순환 페이드 (상태 없이 fract 위상으로)
+ *   - 곡선을 따라 흐르는 접선 방향 드리프트
+ *   - 타이핑에 맞춰 중심에서 퍼지는 파문
+ *   - 커서를 따라가는 head tracking 회전
  *
- * 원본은 transform feedback으로 파티클 상태를 GPU에 누적하지만, 여기서는
- * 상태 없이 시간만으로 위치를 계산한다(수명 위상 = fract). 결과는 동일하고
- * WebGL1에서도 돌며 CPU 갱신이 전혀 없다.
+ * 격자를 깔고 마스킹하는 방식이 아니므로 파티클이 버려지지 않는다.
  *
  * 주의: GLSL smoothstep은 edge0 < edge1 정방향만 스펙 보장(역방향은
  * SwiftShader에서 0을 반환) — 모든 감쇠는 1.0 - smoothstep(...) 형태로 쓴다.
@@ -21,34 +20,34 @@ export const FACE_RINGS = 6
 
 export const faceParticleVertex = /* glsl */ `
 #define FACE_RINGS ${FACE_RINGS}
-attribute vec3 aInitialPos;   // 격자 초기 위치. xy는 그대로 텍스처 UV가 된다
+attribute vec3 aInitialPos;   // 윤곽선(또는 내부) 위의 기준 위치
 attribute vec4 aSeed;         // 파티클별 난수 4채널
+attribute vec2 aTangent;      // 그 지점의 윤곽선 접선 — 곡선을 따라 흐르는 데 쓴다
+attribute float aKind;        // 0 = 윤곽선, 1 = 내부 헤이즈
+attribute float aArc;         // 정수리(0) → 턱(1) 위치. 파문이 이 좌표를 타고 내려간다
 
 uniform float uTime;
-uniform float uLifeSpan;          // 원본: 2~4초
-uniform float uLifeSpanVariation; // 원본: 0.5
-uniform float uParticleScale;     // 원본: 18~19
-uniform float uScaleVariation;    // 원본: 0~5
-uniform float uNoiseFrequency;    // 원본: 0.4
-uniform float uNoiseIntensity;    // 원본: 0.015
-uniform float uDepthScale;        // depth 텍스처 → z 변위 배율
+uniform float uLifeSpan;
+uniform float uLifeSpanVariation;
+uniform float uParticleScale;
+uniform float uScaleVariation;
+uniform float uNoiseFrequency;
+uniform float uNoiseIntensity;
+uniform float uFlowSpeed;         // 곡선을 따라 흐르는 속도
 uniform float uPixelRatio;
 uniform float uYaw;
 uniform float uPitch;
-uniform float uExplosion;         // 결과 전환 시 확 흩어지는 연출
-uniform float uTypeFactor;      // 출력 강도 0..1 — 문장이 찍히는 동안 얼굴이 진동한다
-uniform float uTypePulse;       // 글자마다 튀는 순간 값
+uniform float uExplosion;
+uniform float uTypeFactor;        // 출력 강도 0..1
+uniform float uTypePulse;         // 글자마다 튀는 순간 값
 uniform float uRingT[FACE_RINGS]; // 각 확산 링의 탄생 시각(비활성은 큰 음수)
-uniform float uRingLife;        // 링 수명(초)
-uniform float uRingSpeed;       // 링이 퍼지는 속도(uv 거리/초)
-uniform float uRingWidth;       // 링 마루의 두께
-uniform sampler2D uFaceDepth;
+uniform float uRingLife;
+uniform float uRingSpeed;
+uniform float uRingWidth;
 
-varying vec2 vUv;
 varying float vFade;
 varying float vSeedY;
-varying float vDepth;
-varying float vLight;
+varying float vKind;
 varying float vTypeWave;
 
 // --- simplex noise (Ashima 3D) ---
@@ -113,87 +112,72 @@ vec3 curl(vec3 p) {
 }
 
 void main() {
-  // 초기 격자 위치의 xy가 곧 텍스처 좌표 (원본과 동일한 매핑)
-  vec2 uv = aInitialPos.xy * 0.5 + 0.5;
-  vUv = uv;
   vSeedY = aSeed.y;
+  vKind = aKind;
 
   // 파티클마다 다른 수명·시작 위상 — 전체가 한꺼번에 깜빡이지 않게 한다
   float life = uLifeSpan * (1.0 - aSeed.z * uLifeSpanVariation);
   float phase = fract((uTime + aSeed.w * life) / life);
+  vFade = smoothstep(0.05, 0.16, phase) - smoothstep(0.84, 0.95, phase);
 
-  // 원본의 수명 페이드: 나타났다가 사라지는 구간.
-  // 창이 좁으면 절반 가까이가 항상 꺼져 있어 얼굴에 빈 구멍이 생긴다 —
-  // 원본은 점이 고르게 깔린 격자로 읽히므로 가시 구간을 넓게 잡는다
-  vFade = smoothstep(0.04, 0.14, phase) - smoothstep(0.86, 0.96, phase);
+  vec3 pos = aInitialPos;
 
-  // depth 텍스처로 z를 밀어 평면 격자를 얼굴 입체로 만든다
-  float depth = texture2D(uFaceDepth, uv).r;
-  vDepth = depth;
-  vec3 pos = vec3(aInitialPos.xy, (depth - 0.5) * uDepthScale);
-
-  // --- relighting ---
-  // 소스 렌더는 위쪽 조명이라 albedo의 명암이 "그때의 그림자"를 담고 있다.
-  // 그대로 파티클 밝기로 쓰면 얼굴이 얼룩진다. depth에서 법선을 뽑아
-  // 정면광으로 다시 칠하면 얼굴 전체가 고르게 드러난다(원본의 인상과 같아진다).
-  float texel = 1.0 / 1024.0;
-  float dR = texture2D(uFaceDepth, uv + vec2(texel * 2.0, 0.0)).r;
-  float dL = texture2D(uFaceDepth, uv - vec2(texel * 2.0, 0.0)).r;
-  float dU = texture2D(uFaceDepth, uv + vec2(0.0, texel * 2.0)).r;
-  float dD = texture2D(uFaceDepth, uv - vec2(0.0, texel * 2.0)).r;
-  vec3 nrm = normalize(vec3((dL - dR) * 6.0, (dD - dU) * 6.0, 1.0));
-  // 정면에서 살짝 위/오른쪽으로 치우친 부드러운 키라이트 + 은은한 앰비언트.
-  // 원본은 밝기 편차가 작고(대부분 한 구간에 몰림) 형태는 실루엣으로 읽히므로
-  // 앰비언트를 크게 잡아 얼굴이 고르게 깔리게 한다
-  float key = max(dot(nrm, normalize(vec3(0.18, 0.3, 1.0))), 0.0);
-  vLight = 0.66 + key * 0.4;
+  // 윤곽선을 따라 흐른다 — 접선 방향으로 미끄러지며 곡선이 살아 움직인다.
+  // 방향은 씨드로 갈라 양쪽으로 흐르게 하고(한쪽으로 쓸리지 않게),
+  // 변위는 누적이 아니라 sin으로 왕복시킨다 — 누적하면 수명 끝에 곡선을
+  // 벗어난 자리에서 사라져 윤곽이 번진다.
+  // aTangent에는 끝점 감쇠가 실려 있다(정수리·턱에서 0).
+  float dir = aSeed.x > 0.5 ? 1.0 : -1.0;
+  pos.xy += aTangent * dir * sin(phase * 3.14159) * uFlowSpeed * (0.6 + aSeed.y * 0.8);
 
   // --- 문장 출력 진동 ---
-  // 단어마다 파문 하나가 얼굴 중심에서 태어나 바깥으로 퍼지며 잦아든다.
+  // 단어마다 파문 하나가 정수리에서 태어나 양쪽 뺨을 타고 내려가 턱에서 만난다.
   //
+  // 윤곽선만 남은 구성에서는 중심 기준 동심원이 성립하지 않는다 — 선 위의 점은
+  // 중심에서 거의 같은 거리라 파문이 전체에 동시에 닿아 다시 출렁임이 된다.
+  // 그래서 "퍼져나가는" 좌표를 반지름이 아니라 **선을 따라 잰 호길이**로 잡는다.
   // 설계상 중요한 세 가지(각각 빠지면 "출렁임"으로 되돌아간다):
-  //  1) 파형은 가우시안의 **미분**이다. 양의 봉우리(exp(-x²))만 쓰면 띠 안의 점이
-  //     전부 같은 방향으로 부풀어 덩어리가 지나가는 모양이 된다. 미분형은 골과
-  //     마루가 한 쌍이라 수면의 파문처럼 지나간 자리가 제자리로 돌아온다.
-  //  2) 태어날 때 서서히 켜진다. 나이 0에서는 반지름도 0이라 얼굴 중앙 전체가
-  //     한 점에 겹치는데, 거기서 최대 진폭이면 중앙이 통째로 튄다.
-  //  3) 퍼질수록 진폭이 준다. 실제 파문도 원주가 커지는 만큼 에너지가 흩어진다.
-  float distanceCenter = distance(uv, vec2(0.5));
+  //  1) 파형은 가우시안의 **미분** — 양의 봉우리만 쓰면 띠 안의 점이 전부 같은
+  //     방향으로 부풀어 덩어리가 지나가는 모양이 된다.
+  //  2) 태어날 때 서서히 켜진다 — 나이 0에서는 반지름도 0이라 중앙이 통째로 튄다.
+  //  3) 퍼질수록 진폭이 준다 — 원주가 커지는 만큼 에너지가 흩어진다.
+  float travel = aArc;
   float ringWave = 0.0; // 부호 있는 변위 (골/마루)
-  float ringGlow = 0.0; // 밝기·크기용 (절댓값 성분)
+  float ringGlow = 0.0; // 밝기·크기용
   for (int i = 0; i < FACE_RINGS; i++) {
     float age = uTime - uRingT[i];
     if (age < 0.0 || age > uRingLife) continue;
     float t = age / uRingLife;
     float radius = age * uRingSpeed;
-    float x = (distanceCenter - radius) / uRingWidth;
+    float x = (travel - radius) / uRingWidth;
     float bell = exp(-x * x);
-    float birth = smoothstep(0.0, 0.16, t);          // 태어날 때 서서히
-    float death = 1.0 - smoothstep(0.28, 1.0, t);    // 이른 시점부터 길게 잦아들며
-    float spread = 1.0 / (1.0 + radius * 9.0);       // 퍼질수록 얕게
+    float birth = smoothstep(0.0, 0.16, t);
+    float death = 1.0 - smoothstep(0.28, 1.0, t);
+    float spread = 1.0 / (1.0 + radius * 9.0);
     float amp = birth * death * spread;
     ringWave += -2.0 * x * bell * amp;
     ringGlow += bell * amp;
   }
+  vTypeWave = ringGlow;
 
-  // 점마다 위상을 흩어 한 덩어리로 출렁이지 않고 알갱이처럼 떨리게 한다
+  // 파문은 윤곽선의 법선 방향으로 민다 — 선이 안팎으로 물결친다
+  vec2 outward = normalize(aInitialPos.xy + 0.0001);
+  pos.z += ringWave * 0.085;
+  pos.xy += outward * ringWave * 0.03;
+
+  // 글자마다 튀는 미세 떨림
   float grain = sin(uTime * 12.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
   float drive = uTypeFactor * (0.55 + uTypePulse * 0.45);
-  vTypeWave = ringGlow;
-  // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게.
-  // 표면을 따라 바깥으로도 살짝 밀어 파문이 지나간 자리가 벌어졌다 모인다
-  pos.z += ringWave * 0.085;
-  pos.xy += normalize(aInitialPos.xy + 0.0001) * ringWave * 0.022;
-  pos.xy += normalize(aInitialPos.xy + 0.0001) * (grain - 0.5) * drive * 0.018;
+  pos.xy += outward * (grain - 0.5) * drive * 0.016;
 
-  // 바람장을 따라 수명 동안 누적 이동 — 얼굴에서 연기처럼 흘러나온다.
-  // 이동량이 크면 형상이 뭉개지므로, 수명 후반부로 갈수록 서서히 풀리게 한다
-  vec3 flow = curl(pos * uNoiseFrequency + vec3(0.0, 0.0, uTime * 0.08));
-  pos += flow * uNoiseIntensity * phase * phase * life * 4.0;
+  // 아주 얕은 바람장 — 선이 뭉개지지 않을 만큼만 준다
+  vec3 flow = curl(aInitialPos * uNoiseFrequency + vec3(0.0, 0.0, uTime * 0.08));
+  pos += flow * uNoiseIntensity * phase;
+
   // 결과 전환 시 바깥으로 확 흩어지는 폭발
   pos += normalize(vec3(aSeed.xy - 0.5, aSeed.z)) * uExplosion * (0.4 + aSeed.y);
 
-  // 커서를 따라가는 head tracking — 얼굴 전체를 회전시킨다
+  // 커서를 따라가는 head tracking — 윤곽 전체를 회전시킨다
   float cy = cos(uYaw), sy = sin(uYaw);
   float cp = cos(uPitch), sp = sin(uPitch);
   pos = vec3(pos.x * cy + pos.z * sy, pos.y, -pos.x * sy + pos.z * cy);
@@ -202,11 +186,9 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // 원본과 동일하게 카메라 거리로 크기를 감쇠시킨다.
-  // 출력 중에는 파동에 맞춰 알갱이가 커졌다 작아지며 반짝인다.
-  // 계수를 크게 잡으면(0.5 이상) additive 겹침이 폭증해 얼굴이 마젠타로 타버린다 —
-  // 원본 영상은 채널 포화가 1% 미만이므로 크기 변조는 얕게 준다
-  float size = (uParticleScale + aSeed.x * uScaleVariation) * (1.0 + vTypeWave * 0.18);
+  // 내부 헤이즈는 윤곽선보다 작게 — 선이 또렷하게 읽혀야 한다
+  float kindScale = mix(1.0, 0.72, aKind);
+  float size = (uParticleScale + aSeed.x * uScaleVariation) * kindScale * (1.0 + vTypeWave * 0.18);
   gl_PointSize = size * uPixelRatio / max(0.2, -mvPosition.z);
 }
 `
@@ -214,52 +196,35 @@ void main() {
 export const faceParticleFragment = /* glsl */ `
 precision highp float;
 
-uniform sampler2D uFaceAlbedo;
-uniform vec3 uMonoColor;      // 단색 틴트(팔레트 색)
-uniform float uOpacity;       // 원본: 0.75
-uniform float uTime;
+uniform vec3 uMonoColor;   // 단색 틴트(팔레트 색)
+uniform float uOpacity;
+uniform float uHazeOpacity; // 내부 헤이즈의 상대 밝기
 
-varying vec2 vUv;
 varying float vFade;
 varying float vSeedY;
-varying float vDepth;
-varying float vLight;
+varying float vKind;
 varying float vTypeWave;
 
 const float BORDER = 0.02;
 const float DISC_RADIUS = 0.5;
 
 void main() {
-  // 원본과 같은 원형 디스크 + 중심 하이라이트
+  // 원형 디스크 + 중심 하이라이트
   vec2 c = gl_PointCoord - 0.5;
   float d = length(c);
   float disc = 1.0 - smoothstep(DISC_RADIUS - BORDER, DISC_RADIUS + BORDER, d);
   if (disc <= 0.01) discard;
 
-  vec3 faceColor = texture2D(uFaceAlbedo, vUv).rgb;
-  // albedo는 이제 "얼굴이 있는가(마스크)"로만 쓰고, 밝기는 relighting이 만든다.
-  // 소스 렌더의 조명 명암을 그대로 쓰면 얼굴이 얼룩지기 때문이다.
-  float raw = clamp(length(faceColor) / 1.732, 0.0, 1.0);
-  float mask = smoothstep(0.02, 0.14, raw);
-  // 정면광 + 원래 명암을 소량만 섞어 피부 굴곡의 잔결을 남긴다
-  float lum = mask * mix(vLight, raw * 1.5, 0.22);
-
-  // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
-  // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
-  // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
-  vec3 color = lum * uMonoColor * 0.60;
-  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.09;
+  // 개별 점은 어둡게 두고 additive로 겹친 곳만 밝아지게 한다 —
+  // 그래야 윤곽선이 타지 않고 은은한 빛의 선으로 깔린다
+  vec3 color = uMonoColor * 0.20;
+  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.05;
   color += (vSeedY - 0.5) * 0.03;
-  // 파동의 마루에 있는 점이 밝아져 얼굴 위로 빛의 띠가 퍼져나간다.
-  // 틴트 색으로만 더한다 — albedo 쪽으로 섞으면 보라가 흰빛으로 바래
-  // 원본의 인상과 멀어진다
+  // 파문의 마루에 있는 점이 밝아져 선을 따라 빛의 띠가 퍼져나간다
   color += uMonoColor * vTypeWave * 0.05;
 
-  // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 원본은 화면의 약 16%가
-  // 파티클로 덮이는데, 밝기를 그대로 알파로 쓰면 어두운 쪽이 통째로 사라진다
-  float faceOpacity = mask * (0.84 + lum * 0.16);
-  float alpha = vFade * disc * faceOpacity * uOpacity;
-  if (alpha < 0.015) discard;
+  float alpha = vFade * disc * uOpacity * mix(1.0, uHazeOpacity, vKind);
+  if (alpha < 0.012) discard;
 
   gl_FragColor = vec4(color, alpha);
 }

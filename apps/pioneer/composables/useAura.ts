@@ -19,9 +19,7 @@ export function useAura() {
   async function init(canvas: HTMLCanvasElement) {
     if (scene) return scene
     const { AuraScene } = await import('~/webgl/AuraScene')
-    // public/ 에셋 경로는 앱 base URL 기준 — GitHub Pages 서브패스 배포에서도 맞아야 한다
-    const baseURL = useRuntimeConfig().app.baseURL || '/'
-    scene = new AuraScene(canvas, pendingMode ?? 'flow', pendingPalette?.name ?? 'hero', baseURL)
+    scene = new AuraScene(canvas, pendingMode ?? 'flow', pendingPalette?.name ?? 'hero')
     if (pendingMode) scene.setMode(pendingMode)
     if (pendingPalette) scene.setPalette(pendingPalette.name, pendingPalette.duration)
     if (pendingIntensity) scene.setIntensity(pendingIntensity.value, pendingIntensity.duration)
