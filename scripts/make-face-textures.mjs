@@ -133,6 +133,116 @@ for (let j = 0; j < SIZE; j++) {
 const fgCount = mask.reduce((a, b) => a + b, 0)
 console.log(`전경 픽셀: ${fgCount} (${((fgCount / (SIZE * SIZE)) * 100).toFixed(1)}%)`)
 
+function blur(buf, radius) {
+  const t = new Float32Array(buf.length)
+  const w = []
+  const sigma = radius / 2
+  for (let k = -radius; k <= radius; k++) w.push(Math.exp(-(k * k) / (2 * sigma * sigma)))
+  const wsum = w.reduce((a, b) => a + b, 0)
+  for (let j = 0; j < SIZE; j++) for (let i = 0; i < SIZE; i++) {
+    let s = 0
+    for (let k = -radius; k <= radius; k++) s += buf[j * SIZE + Math.min(SIZE - 1, Math.max(0, i + k))] * w[k + radius]
+    t[j * SIZE + i] = s / wsum
+  }
+  for (let j = 0; j < SIZE; j++) for (let i = 0; i < SIZE; i++) {
+    let s = 0
+    for (let k = -radius; k <= radius; k++) s += t[Math.min(SIZE - 1, Math.max(0, j + k)) * SIZE + i] * w[k + radius]
+    buf[j * SIZE + i] = s / wsum
+  }
+}
+
+// --- 3.5 입 지우기 -------------------------------------------------------
+// 이목구비 중 입만 없앤다. 두 가지를 함께 처리해야 한다:
+//
+//  1) 입술은 클레이 렌더에서 너무 어두워 전경 판정(isFg)에 걸리지 않는다 —
+//     albedo에 어두운 띠로 남는 게 아니라 아예 **마스크 구멍**으로 남는다.
+//     그래서 먼저 타원 안쪽의 마스크를 메운다.
+//  2) 메우는 값은 **가로 방향 보간**으로 만든다. 흐린 복사본을 섞는 방식은
+//     소스에 입이 그대로 들어 있어 립 라인이 유령처럼 남는다. 이 부위의 명암은
+//     거의 세로로만 변하므로(코→턱), 각 행을 타원 좌우 바깥값 사이로 이으면
+//     세로 그라디언트는 보존한 채 입만 사라진다.
+//
+// 거리변환(4)보다 먼저 와야 한다 — 구멍이 남은 채로 거리를 재면 입 자리의
+// 볼륨이 0이 되어 depth에도 골이 파인다.
+const MOUTH = { cx: 0.548, cy: 0.886, rx: 0.135, ry: 0.082 }
+{
+  const chans = [shade, null, null, null] // [0]=shade, [1..3]=albedo r,g,b
+  for (let c = 0; c < 3; c++) {
+    const a = new Float32Array(SIZE * SIZE)
+    for (let o = 0; o < a.length; o++) a[o] = albedo[o * 3 + c]
+    chans[c + 1] = a
+  }
+
+  /** 이 행에서 타원이 차지하는 i 구간 (없으면 null) */
+  function spanAt(j) {
+    const dy = (j / SIZE - MOUTH.cy) / MOUTH.ry
+    if (Math.abs(dy) >= 1) return null
+    const half = MOUTH.rx * Math.sqrt(1 - dy * dy) * SIZE
+    const cxPx = MOUTH.cx * SIZE
+    return [Math.max(1, Math.round(cxPx - half)), Math.min(SIZE - 2, Math.round(cxPx + half))]
+  }
+
+  // 1) 마스크 구멍 메우기
+  let filledMask = 0
+  for (let j = 0; j < SIZE; j++) {
+    const span = spanAt(j)
+    if (!span) continue
+    for (let i = span[0]; i <= span[1]; i++) {
+      const o = j * SIZE + i
+      if (mask[o]) continue
+      mask[o] = 1
+      soft[o] = 1
+      filledMask++
+    }
+  }
+
+  // 2) 가로 보간으로 값 채우기
+  let touched = 0
+  for (let j = 0; j < SIZE; j++) {
+    const span = spanAt(j)
+    if (!span) continue
+    const [iL, iR] = span
+    if (iR <= iL) continue
+    const dy = (j / SIZE - MOUTH.cy) / MOUTH.ry
+    // 위아래 경계에서는 서서히 섞여야 메운 자국이 가로줄로 드러나지 않는다
+    const w = 1 - smooth01(0.72, 1.0, Math.abs(dy))
+    for (const buf of chans) {
+      const left = buf[j * SIZE + iL - 1]
+      const right = buf[j * SIZE + iR + 1]
+      for (let i = iL; i <= iR; i++) {
+        const o = j * SIZE + i
+        const t = (i - iL + 1) / (iR - iL + 2)
+        buf[o] += (left + (right - left) * t - buf[o]) * w
+        if (buf === shade) touched++
+      }
+    }
+  }
+
+  // 이은 자리의 미세한 각을 없앤다 — 타원 주변만 살짝 흐린다
+  for (const buf of chans) {
+    const soften = Float32Array.from(buf)
+    blur(soften, 5)
+    for (let j = 0; j < SIZE; j++) {
+      for (let i = 0; i < SIZE; i++) {
+        const o = j * SIZE + i
+        if (!mask[o]) continue
+        const dx = (i / SIZE - MOUTH.cx) / MOUTH.rx
+        const dy2 = (j / SIZE - MOUTH.cy) / MOUTH.ry
+        const w2 = 1 - smooth01(0.75, 1.3, Math.sqrt(dx * dx + dy2 * dy2))
+        if (w2 > 0) buf[o] += (soften[o] - buf[o]) * w2
+      }
+    }
+  }
+
+  for (let c = 0; c < 3; c++) {
+    const a = chans[c + 1]
+    for (let o = 0; o < a.length; o++) {
+      albedo[o * 3 + c] = Math.max(0, Math.min(255, Math.round(a[o])))
+    }
+  }
+  console.log(`입 제거 — 마스크 구멍 ${filledMask}px, 값 보정 ${touched}px`)
+}
+
 // --- 4. 거리변환으로 저주파 볼륨 ----------------------------------------
 const dist = new Float32Array(SIZE * SIZE)
 {
@@ -154,23 +264,6 @@ for (const d of dist) if (d < 1e8 && d > maxDist) maxDist = d
 console.log(`거리변환 최대: ${maxDist.toFixed(0)}px`)
 
 // --- 5. depth 합성 + 스무딩 ---------------------------------------------
-function blur(buf, radius) {
-  const t = new Float32Array(buf.length)
-  const w = []
-  const sigma = radius / 2
-  for (let k = -radius; k <= radius; k++) w.push(Math.exp(-(k * k) / (2 * sigma * sigma)))
-  const wsum = w.reduce((a, b) => a + b, 0)
-  for (let j = 0; j < SIZE; j++) for (let i = 0; i < SIZE; i++) {
-    let s = 0
-    for (let k = -radius; k <= radius; k++) s += buf[j * SIZE + Math.min(SIZE - 1, Math.max(0, i + k))] * w[k + radius]
-    t[j * SIZE + i] = s / wsum
-  }
-  for (let j = 0; j < SIZE; j++) for (let i = 0; i < SIZE; i++) {
-    let s = 0
-    for (let k = -radius; k <= radius; k++) s += t[Math.min(SIZE - 1, Math.max(0, j + k)) * SIZE + i] * w[k + radius]
-    buf[j * SIZE + i] = s / wsum
-  }
-}
 
 // 명암은 잔 노이즈(피부 질감)를 담고 있으므로 살짝 흐린 뒤 디테일로 쓴다
 const shadeSmooth = Float32Array.from(shade)

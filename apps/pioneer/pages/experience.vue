@@ -65,7 +65,7 @@ function answer(choice: Choice) {
   // 파티클이 잘게 흩어지거나(디테일) 크고 느리게(구름) 변한다
   const t = (step.value + 1) / questions.length
   aura.setFacePersona({
-    scale: 8.0 - t * 2.1 + max * 0.85,
+    scale: 11.5 - t * 3 + max * 1.2,
     noiseScale: 0.34 + t * 0.3,
     speed: 3.4 - t * 1.1,
   })
@@ -93,7 +93,7 @@ function restart() {
   result.value = null
   aura.setPalette('faceAura')
   aura.setIntensity(1.1)
-  aura.setFacePersona({ scale: 9, noiseScale: 1.1, speed: 3 })
+  aura.setFacePersona({ scale: 13, noiseScale: 0.4, speed: 3 })
   phase.value = 'intro'
 }
 

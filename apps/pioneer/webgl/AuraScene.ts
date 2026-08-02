@@ -14,7 +14,7 @@ export type AuraMode = 'flow' | 'face'
  * 전역 아우라 배경 씬.
  * 하나의 Points/geometry를 두 "드라이버" 중 하나가 매 프레임 채운다:
  * - flow: 점들이 노이즈 흐름장을 따라 실제로 이동하는 배경(홈)
- * - face: 얼굴 윤곽선(계란형+V라인) 파티클, 커서 방향으로 yaw/pitch 회전(진단 페이지)
+ * - face: 정면 얼굴 point cloud, 커서 방향으로 yaw/pitch 회전(진단 페이지)
  * 페이지 전환은 항상 풀스크린 웨이브 오버레이로 가려지므로 모드 전환에
  * 별도 크로스페이드가 필요 없다 — setMode는 즉시 드라이버를 교체한다.
  */
@@ -38,16 +38,21 @@ export class AuraScene {
 
   private mode: AuraMode = 'flow'
   private flow: FlowField | null = null
-  // 얼굴 윤곽은 별도 Points/카메라를 갖는다(원근이 필요하다)
+  // 얼굴은 텍스처 기반 파티클로 별도 Points/카메라를 갖는다(원근이 필요하다)
   private face: FaceParticles | null = null
   private faceCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
+  private baseUrl = '/'
 
   constructor(
     canvas: HTMLCanvasElement,
     initialMode: AuraMode = 'flow',
     initialPalette: PaletteName = 'hero',
+    // Nuxt의 앱 base URL. import.meta.env.BASE_URL은 빌드 에셋 경로(/_nuxt/)라
+    // public/ 파일에는 쓸 수 없어 호출 측에서 runtimeConfig 값을 넘겨받는다
+    baseUrl = '/',
   ) {
     this.mode = initialMode
+    this.baseUrl = baseUrl
     const initColors = palettes[initialPalette]
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setClearColor(0x000000, 0)
@@ -133,7 +138,7 @@ export class AuraScene {
         this.face.update(now, mouse.x, mouse.y)
       }
 
-      // 윤곽 파티클은 원근 카메라로, dot 필드는 정투영으로 그린다
+      // 얼굴 파티클은 원근 카메라로, dot 필드는 정투영으로 그린다
       this.renderer.render(this.scene, this.mode === 'face' ? this.faceCamera : this.camera)
     }
     gsap.ticker.add(this.tickerFn)
@@ -180,10 +185,13 @@ export class AuraScene {
       this.flow = new FlowField(count, ratio)
       this.allocateGeometry(this.flow.positions, this.flow.randoms)
     } else if (!this.face) {
-      // 윤곽 파티클은 생성 비용이 있어 한 번만 만들고 재사용한다.
-      // 좁은 화면에서는 파티클 수를 낮춘다.
+      // 얼굴 파티클은 텍스처 로드가 필요해 한 번만 만들고 재사용한다.
+      // 좁은 화면에서는 격자를 줄여 파티클 수를 낮춘다(228² → 160²).
+      const base = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`
       this.face = new FaceParticles({
-        count: window.innerWidth < 760 ? 22000 : undefined,
+        albedoUrl: `${base}face/face-albedo.png`,
+        depthUrl: `${base}face/face-depth.png`,
+        grid: window.innerWidth < 760 ? 160 : undefined,
       })
       this.scene.add(this.face.points)
     }
