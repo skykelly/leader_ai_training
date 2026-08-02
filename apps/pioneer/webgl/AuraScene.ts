@@ -259,6 +259,11 @@ export class AuraScene {
     this.face?.typePulse()
   }
 
+  /** 단어 단위 확산 링 */
+  faceTypeRing() {
+    this.face?.ring()
+  }
+
   setIntensity(value: number, duration = 1.2) {
     gsap.to(this.material.uniforms.uIntensity, {
       value,

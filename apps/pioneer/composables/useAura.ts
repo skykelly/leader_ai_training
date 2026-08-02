@@ -62,5 +62,6 @@ export function useAura() {
     faceExplode: () => scene?.faceExplode(),
     setFaceTyping: (on: boolean) => scene?.setFaceTyping(on),
     faceTypePulse: () => scene?.faceTypePulse(),
+    faceTypeRing: () => scene?.faceTypeRing(),
   }
 }

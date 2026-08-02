@@ -16,7 +16,11 @@
  * SwiftShader에서 0을 반환) — 모든 감쇠는 1.0 - smoothstep(...) 형태로 쓴다.
  */
 
+/** 동시에 살아 있을 수 있는 확산 링의 최대 개수 (GLSL 루프 상한이라 상수여야 한다) */
+export const FACE_RINGS = 6
+
 export const faceParticleVertex = /* glsl */ `
+#define FACE_RINGS ${FACE_RINGS}
 attribute vec3 aInitialPos;   // 격자 초기 위치. xy는 그대로 텍스처 UV가 된다
 attribute vec4 aSeed;         // 파티클별 난수 4채널
 
@@ -34,6 +38,10 @@ uniform float uPitch;
 uniform float uExplosion;         // 결과 전환 시 확 흩어지는 연출
 uniform float uTypeFactor;      // 출력 강도 0..1 — 문장이 찍히는 동안 얼굴이 진동한다
 uniform float uTypePulse;       // 글자마다 튀는 순간 값
+uniform float uRingT[FACE_RINGS]; // 각 확산 링의 탄생 시각(비활성은 큰 음수)
+uniform float uRingLife;        // 링 수명(초)
+uniform float uRingSpeed;       // 링이 퍼지는 속도(uv 거리/초)
+uniform float uRingWidth;       // 링 마루의 두께
 uniform sampler2D uFaceDepth;
 
 varying vec2 vUv;
@@ -141,18 +149,30 @@ void main() {
   vLight = 0.66 + key * 0.4;
 
   // --- 문장 출력 진동 ---
-  // 원본 셰이더와 같은 공식: 얼굴 중심에서 바깥으로 퍼지는 동심원 파동.
-  // 원본은 음성 재생에 물려 있지만 여기서는 타이핑 진행에 물린다 —
-  // 글자가 찍히는 동안 각 점이 이 파동을 타고 앞뒤로 떨린다.
+  // 단어마다 링 하나가 얼굴 중심에서 태어나 바깥으로 퍼지며 사라진다.
+  //
+  // 무한 사인파(cos(d*k + t*w))로 만들면 링이 여러 겹 동시에 깔려 "퍼져나간다"가
+  // 아니라 "얼굴 전체가 출렁인다"로 읽힌다. 그래서 각 링의 탄생 시각을 배열로
+  // 받아 나이(age)로 반지름을 키우고 수명이 다하면 스스로 꺼지게 했다.
+  // 링은 uTypeFactor에 곱하지 않는다 — 마지막 단어의 링이 끝까지 퍼져야 한다.
   float distanceCenter = distance(uv, vec2(0.5));
-  float distanceFactor = 1.0 - distanceCenter * 2.0;
-  float waveFactor = cos(distanceFactor * 5.0 + uTime * 2.3) * 0.5 + 0.5;
+  float ringAmp = 0.0;
+  for (int i = 0; i < FACE_RINGS; i++) {
+    float age = uTime - uRingT[i];
+    if (age < 0.0 || age > uRingLife) continue;
+    float radius = age * uRingSpeed;
+    float d = (distanceCenter - radius) / uRingWidth;
+    // 링 마루는 가우시안 밴드, 진폭은 수명에 따라 선형 감쇠
+    ringAmp += exp(-d * d) * (1.0 - age / uRingLife);
+  }
+  ringAmp = min(ringAmp, 1.4);
+
   // 점마다 위상을 흩어 한 덩어리로 출렁이지 않고 알갱이처럼 떨리게 한다
   float grain = sin(uTime * 12.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
   float drive = uTypeFactor * (0.55 + uTypePulse * 0.45);
-  vTypeWave = waveFactor * drive;
+  vTypeWave = ringAmp;
   // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게
-  pos.z += (waveFactor - 0.5) * drive * 0.42;
+  pos.z += ringAmp * 0.34;
   pos.xy += normalize(aInitialPos.xy + 0.0001) * (grain - 0.5) * drive * 0.03;
 
   // 바람장을 따라 수명 동안 누적 이동 — 얼굴에서 연기처럼 흘러나온다.

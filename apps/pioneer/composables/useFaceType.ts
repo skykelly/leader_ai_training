@@ -31,11 +31,16 @@ export function useFaceType() {
           active += 1
         }
         if (active === 1) aura.setFaceTyping(true)
+        // 첫 단어의 링은 문장이 시작하는 순간 함께 나간다
+        aura.faceTypeRing()
         opts.onStart?.()
       },
-      // 글자마다 진폭이 튄다. 공백·줄바꿈은 건너뛰어 단어의 호흡이 살아난다
+      // 단어가 끝날 때마다 확산 링을 하나 쏘고, 글자마다는 알갱이 진폭만 튄다.
+      // 글자마다 링을 쏘면 82ms 간격이라 링이 대여섯 겹으로 겹쳐 다시
+      // "출렁이는 파동"으로 뭉개진다 — 단어 간격(0.4~0.6초)이라야 한 겹씩 읽힌다
       onChar: (i, ch) => {
-        if (ch !== ' ' && ch !== '\n') aura.faceTypePulse()
+        if (ch === ' ' || ch === '\n') aura.faceTypeRing()
+        else aura.faceTypePulse()
         opts.onChar?.(i, ch)
       },
       onEnd: () => {

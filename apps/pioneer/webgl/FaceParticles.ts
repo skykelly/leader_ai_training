@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import gsap from 'gsap'
-import { faceParticleVertex, faceParticleFragment } from './faceParticleShaders'
+import { faceParticleVertex, faceParticleFragment, FACE_RINGS } from './faceParticleShaders'
 
 /**
  * 텍스처 기반 얼굴 파티클 — preparetopioneer.com/experience의 구조를 재현한다.
@@ -36,6 +36,8 @@ export class FaceParticles {
   private material: THREE.ShaderMaterial
   private albedo: THREE.Texture | null = null
   private depth: THREE.Texture | null = null
+  private lastTime = 0
+  private ringSlot = 0
 
   constructor(opts: FaceParticlesOptions) {
     const grid = opts.grid ?? GRID
@@ -91,6 +93,13 @@ export class FaceParticles {
         uOpacity: { value: 0 }, // 페이드인으로 올린다
         uTypeFactor: { value: 0 },
         uTypePulse: { value: 0 },
+        // 비활성 링은 큰 음수 — 나이가 수명을 넘어 셰이더에서 걸러진다
+        uRingT: { value: new Array(FACE_RINGS).fill(-999) },
+        // 링은 약 0.7초면 얼굴 밖으로 빠져나간다. 수명을 그보다 길게 잡으면
+        // 단어 간격(0.4~0.6초)당 링이 서너 겹씩 쌓여 다시 출렁임으로 뭉개진다
+        uRingLife: { value: 1.15 },
+        uRingSpeed: { value: 0.5 },
+        uRingWidth: { value: 0.085 },
         uMonoColor: { value: new THREE.Color('#8302af') },
         uFaceAlbedo: { value: null },
         uFaceDepth: { value: null },
@@ -131,6 +140,8 @@ export class FaceParticles {
   update(time: number, mouseX: number, mouseY: number) {
     const u = this.material.uniforms
     u.uTime.value = time
+    // 링 발사는 렌더 루프 밖(타이핑 콜백)에서 오므로 마지막 시각을 기억해 둔다
+    this.lastTime = time
     // 커서 방향으로 고개를 돌린다 — 원본과 같은 범위(약 ±30°)
     u.uYaw.value += (mouseX * 0.52 - u.uYaw.value) * 0.06
     u.uPitch.value += (-mouseY * 0.28 - u.uPitch.value) * 0.06
@@ -174,6 +185,17 @@ export class FaceParticles {
       duration: on ? 0.45 : 0.9,
       ease: on ? 'power2.out' : 'power2.inOut',
     })
+  }
+
+  /**
+   * 단어마다 확산 링 하나를 쏜다 — 중심에서 태어나 바깥으로 퍼지며 사라진다.
+   * 슬롯을 돌려 쓰므로 FACE_RINGS개까지 겹쳐 살아 있을 수 있고, 그보다 빨리
+   * 쏘면 가장 오래된 링이 밀려난다.
+   */
+  ring() {
+    const slots = this.material.uniforms.uRingT.value as number[]
+    slots[this.ringSlot] = this.lastTime
+    this.ringSlot = (this.ringSlot + 1) % slots.length
   }
 
   /**
