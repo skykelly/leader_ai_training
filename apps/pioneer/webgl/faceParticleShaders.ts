@@ -146,9 +146,9 @@ void main() {
   // 글자가 찍히는 동안 각 점이 이 파동을 타고 앞뒤로 떨린다.
   float distanceCenter = distance(uv, vec2(0.5));
   float distanceFactor = 1.0 - distanceCenter * 2.0;
-  float waveFactor = cos(distanceFactor * 5.0 + uTime * 5.0) * 0.5 + 0.5;
+  float waveFactor = cos(distanceFactor * 5.0 + uTime * 2.3) * 0.5 + 0.5;
   // 점마다 위상을 흩어 한 덩어리로 출렁이지 않고 알갱이처럼 떨리게 한다
-  float grain = sin(uTime * 26.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
+  float grain = sin(uTime * 12.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
   float drive = uTypeFactor * (0.55 + uTypePulse * 0.45);
   vTypeWave = waveFactor * drive;
   // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게
@@ -216,8 +216,8 @@ void main() {
   // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
   // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
   // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
-  vec3 color = lum * uMonoColor * 0.16;
-  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.045;
+  vec3 color = lum * uMonoColor * 0.60;
+  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.09;
   color += (vSeedY - 0.5) * 0.03;
   // 파동의 마루에 있는 점이 밝아져 얼굴 위로 빛의 띠가 퍼져나간다.
   // 틴트 색으로만 더한다 — albedo 쪽으로 섞으면 보라가 흰빛으로 바래

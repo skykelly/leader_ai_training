@@ -1,8 +1,8 @@
 <template>
   <div class="result">
     <p class="eyebrow reveal">Your aura says</p>
-    <h2 ref="nameEl" class="display name">{{ persona.name }}</h2>
-    <p class="tagline reveal">{{ persona.nameKo }} — {{ persona.tagline }}</p>
+    <TypedText tag="h2" class="display name" :text="persona.name" :delay="220" caret />
+    <TypedText class="tagline" :text="`${persona.nameKo} — ${persona.tagline}`" :delay="900" />
     <p class="desc reveal">{{ persona.description }}</p>
 
     <ul class="contents">
@@ -26,11 +26,8 @@ import type { Persona } from '~/data/personas'
 defineProps<{ persona: Persona }>()
 defineEmits<{ restart: [] }>()
 
-const nameEl = ref<HTMLElement | null>(null)
-
 onMounted(() => {
-  // 유형 공개 연출: 이름 글자 리빌 → 나머지 요소 순차 등장
-  splitRevealTween(nameEl.value!, { duration: 1.3, stagger: 0.05 })
+  // 유형 공개 연출: 이름·태그라인은 TypedText가 찍고, 나머지는 순차 등장
   gsap.from('.reveal', {
     autoAlpha: 0,
     y: 30,

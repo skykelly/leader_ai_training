@@ -9,9 +9,14 @@ import { faceParticleVertex, faceParticleFragment } from './faceParticleShaders'
  * 헤드 스컬프트에서 뽑은 텍스처를 쓴다. 기법(격자 파티클 → UV 샘플링 →
  * depth 변위 → 밝기=알파 → 수명 순환 → 바람장 흐름)은 원본과 동일하다.
  *
- * 파라미터 기본값은 원본 번들에서 확인한 값을 그대로 따랐다:
- *   파티클 수 52,000 / scale 18~19(+변동 0~5) / lifeSpan 2~4s(variation 0.5)
+ * 파라미터 기본값은 원본 번들에서 확인한 값을 따랐다:
+ *   파티클 수 52,000 / lifeSpan 2~4s(variation 0.5)
  *   noiseFrequency 0.4 / noiseIntensity 0.015 / opacity 0.75
+ *
+ * 다만 scale은 번들 값(18~19)이 아니라 13이다. 번들 값은 원본의 카메라 거리·
+ * 뷰포트 기준이라 이 씬에 그대로 넣으면 점이 서로 겹쳐 얼룩진 덩어리가 된다.
+ * 원본 영상은 점이 낱알로 분리되어 보이므로, 영상과 대조해 크기를 줄이고
+ * 그만큼 점당 밝기를 올렸다(겹침이 줄면 additive 누적도 함께 줄기 때문).
  */
 
 // 원본 particleCount 기본 범위(52,000~52,500)에 맞춘 격자 — 228² = 51,984
@@ -74,8 +79,8 @@ export class FaceParticles {
         uTime: { value: 0 },
         uLifeSpan: { value: 3 },
         uLifeSpanVariation: { value: 0.5 },
-        uParticleScale: { value: 23 },
-        uScaleVariation: { value: 2.5 },
+        uParticleScale: { value: 13 },
+        uScaleVariation: { value: 1.5 },
         uNoiseFrequency: { value: 0.4 },
         uNoiseIntensity: { value: 0.015 },
         uDepthScale: { value: 0.55 },
@@ -166,22 +171,22 @@ export class FaceParticles {
     gsap.killTweensOf(u)
     gsap.to(u, {
       value: on ? 1 : 0,
-      duration: on ? 0.28 : 0.7,
+      duration: on ? 0.45 : 0.9,
       ease: on ? 'power2.out' : 'power2.inOut',
     })
   }
 
   /**
    * 글자가 찍힐 때마다 진폭이 튄다 — 타이핑 리듬이 그대로 파티클에 실린다.
-   * 감쇠가 글자 간격(약 58ms)보다 길면 값이 최대치에 눌러앉아 리듬이 사라지므로
-   * 짧게 올렸다 빠르게 떨어뜨린다.
+   * 감쇠가 글자 간격(약 82ms)보다 길면 값이 최대치에 눌러앉아 리듬이 사라지므로
+   * 짧게 올렸다 떨어뜨린다.
    */
   typePulse() {
     const u = this.material.uniforms.uTypePulse
     gsap.killTweensOf(u)
     gsap.timeline()
-      .to(u, { value: 1, duration: 0.03, ease: 'power2.out' })
-      .to(u, { value: 0.12, duration: 0.11, ease: 'power2.in' })
+      .to(u, { value: 1, duration: 0.05, ease: 'power2.out' })
+      .to(u, { value: 0.12, duration: 0.18, ease: 'power2.in' })
   }
 
   /** 결과 전환 시 흩어졌다 다시 모인다 */

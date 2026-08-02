@@ -10,7 +10,7 @@
  */
 
 export interface TypewriterOptions {
-  /** 글자당 밀리초 (기본 58ms ≈ 초당 17자) */
+  /** 글자당 밀리초 (기본 82ms ≈ 초당 12자) */
   charDelay?: number
   /** 글자가 찍힐 때마다 호출 — 진동 펄스에 쓴다 */
   onChar?: (index: number, char: string) => void
@@ -35,7 +35,7 @@ export function useTypewriter() {
 
   function type(full: string, opts: TypewriterOptions = {}) {
     stop()
-    const { charDelay = 58 } = opts
+    const { charDelay = 82 } = opts
 
     // 모션을 줄이는 사용자에게는 타이핑도 진동도 없이 문장을 그대로 보여준다
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

@@ -17,7 +17,7 @@
 | 마그네틱 버튼 | `apps/pioneer/components/ui/MagneticButton.vue` | gsap | ✅ `ScrollMagneticButton` |
 | 얼굴 파티클(albedo/depth 텍스처 샘플링) + head tracking | `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
 | 렌더 이미지 → albedo/depth 텍스처 생성 | `scripts/make-face-textures.mjs` (ffmpeg만 사용) | — | — |
-| 타이핑 텍스트 출력 + 출력 동기 파티클 진동 | `apps/pioneer/composables/useTypewriter.ts` + `faceParticleShaders.ts`(uType*) | gsap | — |
+| 타이핑 텍스트 출력 + 출력 동기 파티클 진동 | `apps/pioneer/components/experience/TypedText.vue` + `composables/{useTypewriter,useFaceType}.ts` + `faceParticleShaders.ts`(uType*) | gsap | — |
 | 클릭 리플 충격파(dot 필드) | `apps/pioneer/webgl/shaders.ts`(uRipple*) + `AuraScene.ripple()` | three, gsap | — |
 | 스크롤 속도→씬 가속(flow boost) | `apps/pioneer/webgl/AuraScene.ts`(flowBoost) + `ScrollProgress.vue` | gsap ST | ✅ (Flow/Warp에 내장) |
 | 노이즈 변위 발광 구체 | `apps/lusion/webgl/{coreShaders,CoreScene}.ts` | three | — |
@@ -70,9 +70,11 @@
   동시 표시 수가 늘어 밝아지므로 색 계수를 함께 내려야 한다).
 - **타이핑 진동**: 타이머는 경과 시간에서 목표 인덱스를 계산할 것 — `setInterval` 누적
   방식은 탭이 백그라운드에 다녀오면 한꺼번에 튄다. 펄스 감쇠가 글자 간격보다 길면
-  값이 최대치에 눌러앉아 리듬이 사라지므로 짧게(0.03s↑/0.11s↓) 준다.
+  값이 최대치에 눌러앉아 리듬이 사라지므로 짧게(0.05s↑/0.18s↓) 준다.
   타이핑 중에도 레이아웃이 안 흔들리게 완성 문장을 `visibility: hidden`으로 깔고
-  실제 글자는 그 위에 절대배치한다. SplitText를 걷어내면 글자 단위가 아니라 단어 단위로
+  실제 글자는 그 위에 절대배치한다(`TypedText.vue`가 이 구조를 캡슐화한다).
+  문단이 여럿이면 진동을 문단마다 껐다 켜지 말고 활성 개수를 세어 마지막에만
+  풀 것 — 문단 사이가 깜빡인다(`useFaceType`). SplitText를 걷어내면 글자 단위가 아니라 단어 단위로
   줄이 접혀 `max-width: Nch`의 결과 줄 수가 달라진다 — 폭을 다시 잡을 것.
   진동은 **크기 변조가 아니라 변위**로 줄 것 — additive 파티클에서 point size를 키우면
   겹침이 폭증해 얼굴이 마젠타로 타버린다.

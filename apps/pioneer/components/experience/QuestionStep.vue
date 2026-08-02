@@ -1,7 +1,7 @@
 <template>
   <div class="step">
     <p class="eyebrow">{{ String(index + 1).padStart(2, '0') }} / {{ String(total).padStart(2, '0') }} — {{ question.promptEn }}</p>
-    <h2 ref="promptEl" class="display prompt">{{ question.prompt }}</h2>
+    <TypedText tag="h2" class="display prompt" :text="question.prompt" :delay="180" caret />
     <ul class="choices">
       <li v-for="(c, i) in question.choices" :key="i">
         <button class="choice" @click="$emit('answer', c)">
@@ -20,10 +20,9 @@ import type { Question, Choice } from '~/data/questions'
 const props = defineProps<{ question: Question; index: number; total: number }>()
 defineEmits<{ answer: [choice: Choice] }>()
 
-const promptEl = ref<HTMLElement | null>(null)
-
+// 질문 문장은 TypedText가 한 글자씩 찍으면서 얼굴 파티클을 진동시킨다
+// (질문이 바뀌면 text prop 변경을 감지해 스스로 다시 찍는다)
 onMounted(() => {
-  splitRevealTween(promptEl.value!, { duration: 0.9, stagger: 0.015 })
   gsap.from('.choice', {
     autoAlpha: 0,
     y: 30,
@@ -39,7 +38,6 @@ watch(
   () => props.index,
   async () => {
     await nextTick()
-    splitRevealTween(promptEl.value!, { duration: 0.9, stagger: 0.015 })
     gsap.fromTo(
       '.choice',
       { autoAlpha: 0, y: 30 },
