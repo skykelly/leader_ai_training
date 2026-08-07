@@ -61,6 +61,7 @@ varying float vSeedY;
 varying float vLight;
 varying float vMask;
 varying float vTypeWave;
+varying float vPointSize;   // 프래그먼트에서 경계 폭을 크기에 맞추는 데 쓴다
 
 // --- simplex noise (Ashima 3D) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -231,6 +232,7 @@ void main() {
   // 카메라가 뒤로 물러나는 세로 화면에서도 -mvPosition.z가 같이 커져 얼굴 대비
   // 점의 비율이 유지된다.
   gl_PointSize = size * (uViewHeight / SIZE_REF_HEIGHT) / max(0.2, -mvPosition.z);
+  vPointSize = gl_PointSize;
 }
 `
 
@@ -242,6 +244,7 @@ uniform vec3 uAccentColor;  // 밝은 쪽에 섞이는 그린
 uniform vec3 uRingColor;    // 파문이 지나갈 때의 색
 uniform float uGreenAmount; // 그린이 섞이는 최대 비율
 uniform float uRingTint;    // 파문의 색 전환 강도
+uniform float uInkGain;     // 점 하나가 내려놓는 빛의 양 (점 크기와 반비례로 맞춘다)
 uniform float uOpacity;     // 원본: 0.75
 
 varying float vFade;
@@ -249,15 +252,20 @@ varying float vSeedY;
 varying float vLight;
 varying float vMask;
 varying float vTypeWave;
+varying float vPointSize;
 
-const float BORDER = 0.02;
 const float DISC_RADIUS = 0.5;
 
 void main() {
   // 원본과 같은 원형 디스크 + 중심 하이라이트
   vec2 c = gl_PointCoord - 0.5;
   float d = length(c);
-  float disc = 1.0 - smoothstep(DISC_RADIUS - BORDER, DISC_RADIUS + BORDER, d);
+  // 경계 폭을 점 크기에 반비례시켜 화면에서 항상 약 1px이 되게 한다.
+  // 고정값(0.02)은 점이 작아질수록 절대 폭이 같이 줄어 서브픽셀 경계가 되고,
+  // 파티클이 흐르는 동안 픽셀 격자에 걸렸다 빠지며 반짝인다(에일리어싱).
+  // gl_PointSize가 프레임버퍼 픽셀 단위라 레티나에서는 저절로 더 날카로워진다.
+  float border = clamp(0.5 / max(vPointSize, 0.5), 0.02, 0.22);
+  float disc = 1.0 - smoothstep(DISC_RADIUS - border, DISC_RADIUS + border, d);
   if (disc <= 0.01) discard;
 
   // 밝기는 전부 relighting이 만든다 — 텍스처를 프래그먼트에서 다시 읽지 않는다.
@@ -269,10 +277,12 @@ void main() {
   float greenMix = smoothstep(0.40, 1.15, vLight) * uGreenAmount;
   vec3 tint = mix(uMonoColor, uAccentColor, greenMix);
 
-  // 개별 파티클을 어둡게 두고 additive로 겹친 곳만 밝아지게 해야
-  // 원본처럼 은은하게 깔린다
-  vec3 color = lum * tint * 0.27;
-  color += tint * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.05;
+  // 점 하나가 내려놓는 빛의 양. 점을 작게 만들면 같은 면적에 쌓이는 점 수가
+  // 제곱으로 줄어드니, 얼굴 밝기를 유지하려면 이 값을 그만큼 올려야 한다.
+  // (겹침이 8배일 때는 낮게 깔아 놓고 겹쳐서 밝아지게 했지만, 겹침을 1 근처로
+  //  내리면 점 하나가 곧 그 자리의 밝기다)
+  vec3 color = lum * tint * uInkGain;
+  color += tint * pow(1.0 - min(1.0, d * 2.0), 3.0) * uInkGain * 0.19;
   color += (vSeedY - 0.5) * 0.03;
 
   // 파문이 지나가는 자리는 밝기뿐 아니라 **색**이 바뀐다 — 더하기만 하면

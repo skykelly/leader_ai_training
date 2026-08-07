@@ -86,8 +86,12 @@ export class FaceParticles {
         uTime: { value: 0 },
         uLifeSpan: { value: 3 },
         uLifeSpanVariation: { value: 0.5 },
-        uParticleScale: { value: 13 },
-        uScaleVariation: { value: 1.5 },
+        // 점 크기와 uInkGain은 **한 쌍으로** 움직인다. 점을 작게 하면 같은 면적을
+        // 덮는 점 수가 제곱으로 줄어드니 gain을 그만큼 올려야 얼굴 밝기가 유지된다.
+        // 13 → 7로 줄이면서 0.27 → 0.85로 올렸다(겹침 7.9배 → 2.3배, 밝기 동일).
+        // 한쪽만 건드리면 얼굴이 통째로 어두워지거나 타버린다.
+        uParticleScale: { value: 7 },
+        uScaleVariation: { value: 0.8 },
         uNoiseFrequency: { value: 0.4 },
         uNoiseIntensity: { value: 0.015 },
         uDepthScale: { value: 0.55 },
@@ -115,6 +119,7 @@ export class FaceParticles {
         // 계수는 낮게 — 한 문장에 링이 서너 겹 살아 있어 합이 쉽게 1을 넘는다
         uRingColor: { value: new THREE.Color('#5ef0c0') },
         uRingTint: { value: 0.42 },
+        uInkGain: { value: 0.85 },
         uFaceDepth: { value: null },
         uFaceNormal: { value: null },
       },
