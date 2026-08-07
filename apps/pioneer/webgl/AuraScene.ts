@@ -186,12 +186,19 @@ export class AuraScene {
       this.allocateGeometry(this.flow.positions, this.flow.randoms)
     } else if (!this.face) {
       // 얼굴 파티클은 텍스처 로드가 필요해 한 번만 만들고 재사용한다.
-      // 좁은 화면에서는 파티클 수를 낮춘다.
+      // 저사양(터치) 기기에서는 파티클 수를 낮춘다.
+      //
+      // 기준이 `innerWidth < 760`이었을 때는 브라우저 확대가 이 분기를 잘못
+      // 밟았다 — CSS 픽셀은 확대하면 줄어들어서, 데스크톱 1280px 창도 200%에서는
+      // 640으로 읽혀 파티클이 34,000 → 22,000으로 떨어지고 얼굴이 어두워졌다.
+      // pointer: coarse는 배율과 무관해 실제 기기 종류만 본다(터치 auto-wander가
+      // 쓰는 것과 같은 신호).
       const base = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`
+      const coarse = window.matchMedia('(pointer: coarse)').matches
       this.face = new FaceParticles({
         depthUrl: `${base}face/face-depth.png`,
         normalUrl: `${base}face/face-normal.png`,
-        count: window.innerWidth < 760 ? 22000 : undefined,
+        count: coarse ? 22000 : undefined,
       })
       // 얼굴은 화면 위쪽에 띄운다 — 아래를 비워 자막이 얼굴을 가리지 않게 한다
       this.face.points.scale.setScalar(0.8)
@@ -323,7 +330,9 @@ export class AuraScene {
     this.faceCamera.aspect = w / h
     this.faceCamera.position.z = 2.55 * Math.max(1, 0.95 / this.faceCamera.aspect)
     this.faceCamera.updateProjectionMatrix()
-    this.face?.setPixelRatio(dpr)
+    // 얼굴 점 크기는 dpr이 아니라 프레임버퍼 높이를 따라야 한다 — 브라우저 확대는
+    // dpr만 올리고 물리 창은 그대로라, dpr 기준이면 얼굴 대비 점만 커져 밝아진다
+    this.face?.setViewHeight(h * dpr)
     // face는 매 프레임 ratio를 반영해 재투영하므로 리사이즈로 재생성할 필요가 없다.
     // flow는 화면을 채우는 점 개수·랩어라운드 경계가 비율에 의존하므로 다시 만든다.
     const noDriverYet = !this.flow && !this.face

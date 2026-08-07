@@ -28,6 +28,10 @@ export const FACE_RINGS = 6
 
 export const faceParticleVertex = /* glsl */ `
 #define FACE_RINGS ${FACE_RINGS}
+// uParticleScale이 "이 높이의 프레임버퍼에서 몇 px인가"로 읽히게 하는 기준값.
+// 기존 공식(scale * dpr)과 800px 창에서 정확히 같은 크기가 나오도록 잡았다 —
+// 즉 이 수정은 기본 창에서의 모양을 바꾸지 않고 배율 의존성만 없앤다.
+#define SIZE_REF_HEIGHT 800.0
 attribute vec3 aInitialPos;   // 격자 초기 위치. xy는 그대로 텍스처 UV가 된다
 attribute vec4 aSeed;         // 파티클별 난수 4채널
 
@@ -39,7 +43,7 @@ uniform float uScaleVariation;    // 원본: 0~5
 uniform float uNoiseFrequency;    // 원본: 0.4
 uniform float uNoiseIntensity;    // 원본: 0.015
 uniform float uDepthScale;        // depth 텍스처 → z 변위 배율
-uniform float uPixelRatio;
+uniform float uViewHeight;        // 프레임버퍼 높이(px) — 점 크기의 기준
 uniform float uYaw;
 uniform float uPitch;
 uniform float uExplosion;         // 결과 전환 시 확 흩어지는 연출
@@ -218,7 +222,15 @@ void main() {
   // 계수를 크게 잡으면(0.5 이상) additive 겹침이 폭증해 얼굴이 마젠타로 타버린다 —
   // 원본 영상은 채널 포화가 1% 미만이므로 크기 변조는 얕게 준다
   float size = (uParticleScale + aSeed.x * uScaleVariation) * (1.0 + vTypeWave * 0.18);
-  gl_PointSize = size * uPixelRatio / max(0.2, -mvPosition.z);
+  // gl_PointSize는 프레임버퍼 픽셀 단위다. 기준을 devicePixelRatio로 잡으면,
+  // 브라우저 확대 시 dpr만 오르고 물리 창(=프레임버퍼)은 그대로라서 얼굴 크기는
+  // 그대로인데 점만 커진다 — additive라 겹친 만큼 더해져 밝기가 배율에 따라
+  // 몇 배씩 흔들린다(50%↔200%에서 5.1배 측정). 프레임버퍼 높이를 기준으로
+  // 잡으면 CSS 높이와 dpr이 반비례로 움직여도 그 곱이 불변이라 크기가 고정된다.
+  // three가 자기 PointsMaterial에서 쓰는 기준과 같다(scale = canvas.height * 0.5).
+  // 카메라가 뒤로 물러나는 세로 화면에서도 -mvPosition.z가 같이 커져 얼굴 대비
+  // 점의 비율이 유지된다.
+  gl_PointSize = size * (uViewHeight / SIZE_REF_HEIGHT) / max(0.2, -mvPosition.z);
 }
 `
 

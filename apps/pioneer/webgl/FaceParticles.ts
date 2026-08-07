@@ -91,7 +91,8 @@ export class FaceParticles {
         uNoiseFrequency: { value: 0.4 },
         uNoiseIntensity: { value: 0.015 },
         uDepthScale: { value: 0.55 },
-        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+        // 프레임버퍼 높이. AuraScene이 리사이즈마다 실제 값으로 갱신한다
+        uViewHeight: { value: window.innerHeight * Math.min(window.devicePixelRatio, 2) },
         uYaw: { value: 0 },
         uPitch: { value: 0 },
         uExplosion: { value: 0 },
@@ -311,8 +312,12 @@ export class FaceParticles {
       .to(u, { value: 0, duration: 1.4, ease: 'power2.inOut' })
   }
 
-  setPixelRatio(ratio: number) {
-    this.material.uniforms.uPixelRatio.value = ratio
+  /**
+   * 프레임버퍼 높이(px = CSS 높이 × dpr)를 넘긴다.
+   * dpr만 넘기면 브라우저 확대 시 얼굴은 그대로인데 점만 커져 밝기가 흔들린다.
+   */
+  setViewHeight(px: number) {
+    this.material.uniforms.uViewHeight.value = px
   }
 
   dispose() {
