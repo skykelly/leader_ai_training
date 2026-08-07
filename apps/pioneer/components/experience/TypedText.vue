@@ -1,8 +1,11 @@
 <template>
   <!-- 완성된 문장을 visibility:hidden으로 깔아 자리를 먼저 잡는다.
-       없으면 줄 수가 늘어날 때마다 아래 내용이 밀려 레이아웃이 출렁인다 -->
+       없으면 줄 수가 늘어날 때마다 아래 내용이 밀려 레이아웃이 출렁인다.
+       고스트에도 캐럿을 넣는 게 중요하다 — 캐럿은 인라인이라 줄바꿈 위치를
+       바꾼다. 빼면 실제 텍스트만 한 줄 더 접히는데, tt-live는 absolute라
+       늘어난 줄이 고스트가 잡아 둔 높이를 뚫고 아래 문단을 덮는다 -->
   <component :is="tag" class="typed-text" :class="{ 'is-typing': typing }" :aria-label="text">
-    <span class="tt-ghost" aria-hidden="true">{{ text }}</span>
+    <span class="tt-ghost" aria-hidden="true">{{ text }}<i v-if="caret" class="tt-caret" /></span>
     <span class="tt-live" aria-hidden="true">{{ shown }}<i v-if="caret" class="tt-caret" /></span>
   </component>
 </template>
