@@ -9,102 +9,80 @@
       <ellipse cx="486" cy="360" rx="312" ry="352" transform="rotate(-16 486 360)" />
     </svg>
   </div>
-  <main class="experience">
-    <Transition :css="false" mode="out-in" @enter="onEnter" @leave="onLeave">
-      <ExperienceIntro v-if="phase === 'intro'" key="intro" @start="start" />
-      <QuestionStep
-        v-else-if="phase === 'question'"
-        key="question"
-        :question="questions[step]"
-        :index="step"
-        :total="questions.length"
-        @answer="answer"
-      />
-      <ResultScreen v-else key="result" :persona="result!" @restart="restart" />
-    </Transition>
+
+  <!-- 화면 어디를 눌러도 다음 문장으로 넘어간다. 캔버스 위 전면을 덮는
+       레이어라 얼굴 위든 여백이든 반응한다 -->
+  <main
+    class="experience"
+    role="button"
+    tabindex="0"
+    :aria-label="`${index + 1} / ${LINES.length} — 눌러서 다음 문장`"
+    @click="advance"
+    @keydown.enter.prevent="advance"
+    @keydown.space.prevent="advance"
+  >
+    <!-- 얼굴 아래 자막. text가 바뀌면 TypedText가 스스로 다시 찍는다 -->
+    <TypedText
+      ref="lineRef"
+      class="line display"
+      :text="LINES[index]"
+      :delay="index === 0 ? 500 : 120"
+      caret
+      @done="settled = true"
+    />
+
+    <p class="hint eyebrow" :class="{ show: settled }">
+      {{ index === LINES.length - 1 ? 'Click to start over' : 'Click anywhere to continue' }}
+    </p>
   </main>
 </template>
 
 <script setup lang="ts">
-import gsap from 'gsap'
-import { questions, type Choice } from '~/data/questions'
-import { personas, type Persona, type PersonaId } from '~/data/personas'
+/**
+ * 얼굴이 스스로를 소개하는 내러티브. 진단(질문·선택지)을 걷어내고
+ * 문장 하나씩 화면 아래에 찍는 구성으로 바꿨다.
+ *
+ * 클릭 규칙: 찍히는 중이면 그 문장을 즉시 완성하고, 이미 완성됐으면 다음
+ * 문장으로 넘어간다. 찍히는 도중의 클릭을 그대로 "다음"으로 처리하면
+ * 읽기도 전에 문장이 사라진다.
+ */
+const LINES = [
+  'What kind of pioneer are you?',
+  'I am an AI that is curious about people.',
+  'I ask questions to understand how people think and feel.',
+  'Every conversation helps me learn something new.',
+  'I discover that every person has a unique story.',
+  'The more I learn, the better I can help people.',
+  'That is why I keep exploring the amazing world of humans.',
+]
 
-type Phase = 'intro' | 'question' | 'result'
-
-const phase = ref<Phase>('intro')
-const step = ref(0)
-const scores = ref<Record<PersonaId, number>>({ visionary: 0, explorer: 0, catalyst: 0, guardian: 0 })
-const result = ref<Persona | null>(null)
 const aura = useAura()
+const index = ref(0)
+const settled = ref(false)
+const lineRef = ref<{ replay: () => void; finish: () => void } | null>(null)
+
+function advance() {
+  if (!settled.value) {
+    // 아직 찍히는 중 — 마저 다 보여준다
+    lineRef.value?.finish()
+    return
+  }
+  settled.value = false
+  // 마지막 문장에서 다시 누르면 처음으로 돌아간다(막다른 곳을 만들지 않는다)
+  const nextIndex = (index.value + 1) % LINES.length
+  if (nextIndex === index.value) lineRef.value?.replay()
+  index.value = nextIndex
+}
+
+watch(index, () => {
+  settled.value = false
+})
 
 onMounted(() => {
   aura.setMode('face')
   aura.setPalette('faceAura', 0.6)
   aura.setIntensity(1.1)
 })
-
-function start() {
-  phase.value = 'question'
-}
-
-function answer(choice: Choice) {
-  // 점수 누적 + 이번 선택이 가장 강하게 가리키는 유형 쪽으로 아우라 모핑
-  let dominant: PersonaId | null = null
-  let max = 0
-  for (const [id, w] of Object.entries(choice.weights) as [PersonaId, number][]) {
-    scores.value[id] += w
-    if (w > max) {
-      max = w
-      dominant = id
-    }
-  }
-  if (dominant) aura.setPalette(personas[dominant].palette, 1)
-  aura.pulse()
-  // 원본처럼 답변이 얼굴 파티클의 생김새 자체를 바꾼다 — 질문이 진행될수록
-  // 파티클이 잘게 흩어지거나(디테일) 크고 느리게(구름) 변한다
-  const t = (step.value + 1) / questions.length
-  aura.setFacePersona({
-    scale: 11.5 - t * 3 + max * 1.2,
-    noiseScale: 0.34 + t * 0.3,
-    speed: 3.4 - t * 1.1,
-  })
-
-  if (step.value < questions.length - 1) {
-    step.value += 1
-  } else {
-    finish()
-  }
-}
-
-function finish() {
-  const winner = (Object.entries(scores.value) as [PersonaId, number][]).sort((a, b) => b[1] - a[1])[0][0]
-  result.value = personas[winner]
-  aura.setPalette(personas[winner].palette, 2)
-  aura.setIntensity(1.5, 2)
-  // 결과 공개 순간 얼굴이 한 번 흩어졌다 다시 모인다
-  aura.faceExplode()
-  phase.value = 'result'
-}
-
-function restart() {
-  scores.value = { visionary: 0, explorer: 0, catalyst: 0, guardian: 0 }
-  step.value = 0
-  result.value = null
-  aura.setPalette('faceAura')
-  aura.setIntensity(1.1)
-  aura.setFacePersona({ scale: 13, noiseScale: 0.4, speed: 3 })
-  phase.value = 'intro'
-}
-
-// 스텝 간 전환: GSAP JS 훅으로 페이드+슬라이드
-function onEnter(el: Element, done: () => void) {
-  gsap.fromTo(el, { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out', onComplete: done })
-}
-
-function onLeave(el: Element, done: () => void) {
-  gsap.to(el, { autoAlpha: 0, y: -30, duration: 0.4, ease: 'power2.in', onComplete: done })
-}
 </script>
 
 <style scoped>
@@ -151,13 +129,44 @@ function onLeave(el: Element, done: () => void) {
   mask-image: radial-gradient(96% 78% at 62% 22%, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 82%);
 }
 
+/* 얼굴은 화면 위쪽에 뜨고 자막은 그 아래에 깔린다.
+   전면을 덮어야 "화면 어디든 클릭"이 성립하므로 여백까지 이 레이어가 받는다 */
 .experience {
   position: relative;
   z-index: 1;
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 6rem 1.5rem;
+  justify-content: flex-end;
+  gap: 1.1rem;
+  padding: 0 1.5rem 8vh;
+  text-align: center;
+  cursor: pointer;
+}
+
+.line {
+  /* 자막이라 히어로 타이틀보다 작다. 폭을 잡아 두 줄을 넘지 않게 한다 */
+  font-size: clamp(1.05rem, 2.6vw, 1.9rem);
+  line-height: 1.45;
+  max-width: 32ch;
+  text-wrap: balance;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
+}
+
+.hint {
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.hint.show {
+  opacity: 0.75;
+}
+
+@media (max-width: 600px) {
+  .experience {
+    padding-bottom: 6vh;
+  }
 }
 </style>

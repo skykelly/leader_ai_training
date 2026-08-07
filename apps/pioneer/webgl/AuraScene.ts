@@ -191,8 +191,11 @@ export class AuraScene {
       this.face = new FaceParticles({
         depthUrl: `${base}face/face-depth.png`,
         normalUrl: `${base}face/face-normal.png`,
-        count: window.innerWidth < 760 ? 26000 : undefined,
+        count: window.innerWidth < 760 ? 22000 : undefined,
       })
+      // 얼굴은 화면 위쪽에 띄운다 — 아래를 비워 자막이 얼굴을 가리지 않게 한다
+      this.face.points.scale.setScalar(0.8)
+      this.face.points.position.y = 0.34
       this.scene.add(this.face.points)
     }
     // 모드에 맞는 것만 보이게 한다

@@ -55,7 +55,17 @@ export function useFaceType() {
     release()
   }
 
+  /** 남은 글자를 건너뛰고 문장을 완성한다 — 클릭으로 건너뛸 때 쓴다 */
+  function finish(text: string, onEnd?: () => void) {
+    tw.finish(text, {
+      onEnd: () => {
+        release()
+        onEnd?.()
+      },
+    })
+  }
+
   onScopeDispose(release)
 
-  return { text: tw.text, typing: tw.typing, type, stop }
+  return { text: tw.text, typing: tw.typing, type, finish, stop }
 }

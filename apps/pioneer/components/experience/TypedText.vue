@@ -29,7 +29,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{ done: [] }>()
 
-const { text: shown, typing, type, stop } = useFaceType()
+const { text: shown, typing, type, finish, stop } = useFaceType()
 let timer: ReturnType<typeof setTimeout> | undefined
 
 function run() {
@@ -39,8 +39,14 @@ function run() {
   }, props.delay)
 }
 
-/** 부모가 다시 재생시킬 때 쓴다 */
-defineExpose({ replay: run })
+/** 남은 글자를 건너뛰고 즉시 완성한다 */
+function skip() {
+  clearTimeout(timer)
+  finish(props.text, () => emit('done'))
+}
+
+/** 부모가 다시 재생시키거나 건너뛸 때 쓴다 */
+defineExpose({ replay: run, finish: skip })
 
 watch(
   () => props.start,

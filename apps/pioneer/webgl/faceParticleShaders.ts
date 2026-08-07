@@ -189,7 +189,8 @@ void main() {
   // 점마다 위상을 흩어 한 덩어리로 출렁이지 않고 알갱이처럼 떨리게 한다
   float grain = sin(uTime * 12.0 + aSeed.x * 6.2831) * 0.5 + 0.5;
   float drive = uTypeFactor * (0.55 + uTypePulse * 0.45);
-  vTypeWave = ringGlow;
+  // 링이 겹치면 합이 1을 훌쩍 넘어 색 전환이 얼굴 전체를 덮는다 — 상한을 둔다
+  vTypeWave = min(ringGlow, 1.0);
   // 진동은 밝기가 아니라 "움직임"으로 읽혀야 한다 — 변위를 크게, 발광은 얕게.
   // 표면을 따라 바깥으로도 살짝 밀어 파문이 지나간 자리가 벌어졌다 모인다
   pos.z += ringWave * 0.085;

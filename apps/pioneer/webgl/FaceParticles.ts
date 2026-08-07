@@ -102,7 +102,7 @@ export class FaceParticles {
         uRingT: { value: new Array(FACE_RINGS).fill(-999) },
         // 링은 약 0.85초면 얼굴 밖으로 빠져나간다. 수명을 그보다 훨씬 길게 잡으면
         // 단어 간격(0.4~0.6초)당 링이 서너 겹씩 쌓여 다시 출렁임으로 뭉개진다
-        uRingLife: { value: 1.3 },
+        uRingLife: { value: 1.0 },
         uRingSpeed: { value: 0.42 },
         // 띠가 두꺼우면 파문이 아니라 덩어리가 지나가는 모양이 된다
         uRingWidth: { value: 0.055 },
@@ -110,9 +110,10 @@ export class FaceParticles {
         // 밝은 쪽에 섞이는 그린 — 앱 팔레트의 emerald(#34d399)
         uAccentColor: { value: new THREE.Color('#34d399') },
         uGreenAmount: { value: 0.26 },
-        // 파문이 지나갈 때의 색. 그린보다 한 단계 밝은 민트라 파문이 또렷하다
+        // 파문이 지나갈 때의 색. 그린보다 한 단계 밝은 민트라 파문이 또렷하다.
+        // 계수는 낮게 — 한 문장에 링이 서너 겹 살아 있어 합이 쉽게 1을 넘는다
         uRingColor: { value: new THREE.Color('#5ef0c0') },
-        uRingTint: { value: 0.62 },
+        uRingTint: { value: 0.42 },
         uFaceDepth: { value: null },
         uFaceNormal: { value: null },
       },
