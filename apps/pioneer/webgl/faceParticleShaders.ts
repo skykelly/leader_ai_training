@@ -2,11 +2,18 @@
  * 얼굴 파티클 셰이더 — preparetopioneer.com/experience의 구조를 따른다.
  *
  * 원본 구조(번들 분석으로 확인):
- *   - 파티클의 "초기 격자 위치 xy"가 그대로 얼굴 텍스처의 UV가 된다
- *   - depth 텍스처로 z를 밀어 입체를 만들고, albedo 색이 파티클 색이 된다
- *   - albedo의 밝기가 알파를 결정해(어두운 배경 = 투명) 얼굴 형태가 드러난다
+ *   - 파티클의 "초기 위치 xy"가 그대로 얼굴 텍스처의 UV가 된다
+ *   - depth 텍스처로 z를 밀어 입체를 만든다
  *   - 각 파티클은 수명(lifeSpan)을 돌며 페이드 인/아웃하고 초기 위치에서 재시작
  *   - 노이즈 바람장을 따라 천천히 흘러 흩어진다
+ *
+ * 텍스처는 3D 헤드 모델에서 구운 것이다(`scripts/bake-face-textures.mjs`):
+ *   uFaceDepth  R=깊이(1=코), G=커버리지
+ *   uFaceNormal 뷰 공간 법선
+ * 이전에는 정면 렌더 한 장에서 깊이를 추정하고 그 깊이를 유한차분해 법선을
+ * 근사했다. 이제 둘 다 계산된 값이라 relighting이 실제 조명이 된다.
+ * 커버리지도 albedo 밝기 추정이 아니라 기하 정보다 — 어두운 이목구비가
+ * 배경으로 분류돼 구멍이 나던 문제가 원천적으로 사라진다.
  *
  * 원본은 transform feedback으로 파티클 상태를 GPU에 누적하지만, 여기서는
  * 상태 없이 시간만으로 위치를 계산한다(수명 위상 = fract). 결과는 동일하고
@@ -43,12 +50,12 @@ uniform float uRingLife;        // 링 수명(초)
 uniform float uRingSpeed;       // 링이 퍼지는 속도(uv 거리/초)
 uniform float uRingWidth;       // 링 마루의 두께
 uniform sampler2D uFaceDepth;
+uniform sampler2D uFaceNormal;
 
-varying vec2 vUv;
 varying float vFade;
 varying float vSeedY;
-varying float vDepth;
 varying float vLight;
+varying float vMask;
 varying float vTypeWave;
 
 // --- simplex noise (Ashima 3D) ---
@@ -113,9 +120,8 @@ vec3 curl(vec3 p) {
 }
 
 void main() {
-  // 초기 격자 위치의 xy가 곧 텍스처 좌표 (원본과 동일한 매핑)
+  // 초기 위치의 xy가 곧 텍스처 좌표 (원본과 동일한 매핑)
   vec2 uv = aInitialPos.xy * 0.5 + 0.5;
-  vUv = uv;
   vSeedY = aSeed.y;
 
   // 파티클마다 다른 수명·시작 위상 — 전체가 한꺼번에 깜빡이지 않게 한다
@@ -127,26 +133,30 @@ void main() {
   // 원본은 점이 고르게 깔린 격자로 읽히므로 가시 구간을 넓게 잡는다
   vFade = smoothstep(0.04, 0.14, phase) - smoothstep(0.86, 0.96, phase);
 
-  // depth 텍스처로 z를 밀어 평면 격자를 얼굴 입체로 만든다
-  float depth = texture2D(uFaceDepth, uv).r;
-  vDepth = depth;
-  vec3 pos = vec3(aInitialPos.xy, (depth - 0.5) * uDepthScale);
+  // depth로 z를 밀어 평면 배치를 얼굴 입체로 만든다. G는 커버리지 —
+  // "얼굴이 있는가"가 밝기 추정이 아니라 기하 정보로 온다
+  vec4 dep = texture2D(uFaceDepth, uv);
+  vMask = dep.g;
+  vec3 pos = vec3(aInitialPos.xy, (dep.r - 0.5) * uDepthScale);
 
   // --- relighting ---
-  // 소스 렌더는 위쪽 조명이라 albedo의 명암이 "그때의 그림자"를 담고 있다.
-  // 그대로 파티클 밝기로 쓰면 얼굴이 얼룩진다. depth에서 법선을 뽑아
-  // 정면광으로 다시 칠하면 얼굴 전체가 고르게 드러난다(원본의 인상과 같아진다).
-  float texel = 1.0 / 1024.0;
-  float dR = texture2D(uFaceDepth, uv + vec2(texel * 2.0, 0.0)).r;
-  float dL = texture2D(uFaceDepth, uv - vec2(texel * 2.0, 0.0)).r;
-  float dU = texture2D(uFaceDepth, uv + vec2(0.0, texel * 2.0)).r;
-  float dD = texture2D(uFaceDepth, uv - vec2(0.0, texel * 2.0)).r;
-  vec3 nrm = normalize(vec3((dL - dR) * 6.0, (dD - dU) * 6.0, 1.0));
-  // 정면에서 살짝 위/오른쪽으로 치우친 부드러운 키라이트 + 은은한 앰비언트.
-  // 원본은 밝기 편차가 작고(대부분 한 구간에 몰림) 형태는 실루엣으로 읽히므로
-  // 앰비언트를 크게 잡아 얼굴이 고르게 깔리게 한다
-  float key = max(dot(nrm, normalize(vec3(0.18, 0.3, 1.0))), 0.0);
-  vLight = 0.66 + key * 0.4;
+  // 모델에서 구운 실제 법선으로 다시 칠한다. 유한차분 근사였을 때는 뭉툭해서
+  // 앰비언트를 크게 잡아 얼룩을 덮어야 했지만, 이제는 이목구비가 법선에
+  // 제대로 담겨 있어 대비를 살려도 형태가 무너지지 않는다.
+  vec3 nrm = normalize(texture2D(uFaceNormal, uv).rgb * 2.0 - 1.0);
+  // 광원은 반드시 비스듬해야 한다. 정면광(0,0,1)이면 얼굴 앞면 전체에서
+  // dot(n,L)이 1에 가까워 코·눈두덩·입술이 전부 같은 밝기로 뭉개진다 —
+  // 법선이 아무리 정확해도 형태가 안 보인다.
+  vec3 L = normalize(vec3(-0.55, 0.45, 0.70));
+  // 하프 램버트: 그림자 쪽이 뚝 끊기지 않고 부드럽게 이어진다
+  float hl = dot(nrm, L) * 0.5 + 0.5;
+  float key = hl * hl;
+  // 하프 램버트만으로는 그라디언트가 너무 매끄러워 콧대·눈두덩·입술 같은
+  // 국소 굴곡이 묻힌다. 좁은 하이라이트를 하나 더 얹어 능선을 집어낸다
+  float sheen = pow(key, 7.0);
+  // 림은 아주 얕게만 — 세게 주면 얼굴이 테두리만 밝은 껍데기로 읽힌다
+  float rim = pow(1.0 - clamp(nrm.z, 0.0, 1.0), 3.0);
+  vLight = 0.32 + key * 0.60 + sheen * 0.38 + rim * 0.06;
 
   // --- 문장 출력 진동 ---
   // 단어마다 파문 하나가 얼굴 중심에서 태어나 바깥으로 퍼지며 잦아든다.
@@ -214,16 +224,13 @@ void main() {
 export const faceParticleFragment = /* glsl */ `
 precision highp float;
 
-uniform sampler2D uFaceAlbedo;
-uniform vec3 uMonoColor;      // 단색 틴트(팔레트 색)
-uniform float uOpacity;       // 원본: 0.75
-uniform float uTime;
+uniform vec3 uMonoColor;   // 단색 틴트(팔레트 색)
+uniform float uOpacity;    // 원본: 0.75
 
-varying vec2 vUv;
 varying float vFade;
 varying float vSeedY;
-varying float vDepth;
 varying float vLight;
+varying float vMask;
 varying float vTypeWave;
 
 const float BORDER = 0.02;
@@ -236,28 +243,22 @@ void main() {
   float disc = 1.0 - smoothstep(DISC_RADIUS - BORDER, DISC_RADIUS + BORDER, d);
   if (disc <= 0.01) discard;
 
-  vec3 faceColor = texture2D(uFaceAlbedo, vUv).rgb;
-  // albedo는 이제 "얼굴이 있는가(마스크)"로만 쓰고, 밝기는 relighting이 만든다.
-  // 소스 렌더의 조명 명암을 그대로 쓰면 얼굴이 얼룩지기 때문이다.
-  float raw = clamp(length(faceColor) / 1.732, 0.0, 1.0);
-  float mask = smoothstep(0.02, 0.14, raw);
-  // 정면광 + 원래 명암을 소량만 섞어 피부 굴곡의 잔결을 남긴다
-  float lum = mask * mix(vLight, raw * 1.5, 0.22);
+  // 밝기는 전부 relighting이 만든다 — 텍스처를 프래그먼트에서 다시 읽지 않는다.
+  // 커버리지·조도는 정점에서 한 번 샘플링해 varying으로 넘어온다
+  float lum = vMask * vLight;
 
   // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
   // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
   // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
-  vec3 color = lum * uMonoColor * 0.60;
-  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.09;
+  vec3 color = lum * uMonoColor * 0.18;
+  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.05;
   color += (vSeedY - 0.5) * 0.03;
-  // 파동의 마루에 있는 점이 밝아져 얼굴 위로 빛의 띠가 퍼져나간다.
-  // 틴트 색으로만 더한다 — albedo 쪽으로 섞으면 보라가 흰빛으로 바래
-  // 원본의 인상과 멀어진다
+  // 파문의 마루에 있는 점이 밝아져 얼굴 위로 빛의 띠가 퍼져나간다
   color += uMonoColor * vTypeWave * 0.05;
 
-  // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 원본은 화면의 약 16%가
-  // 파티클로 덮이는데, 밝기를 그대로 알파로 쓰면 어두운 쪽이 통째로 사라진다
-  float faceOpacity = mask * (0.84 + lum * 0.16);
+  // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 밝기를 그대로 알파로
+  // 쓰면 어두운 쪽이 통째로 사라져 형태에 구멍이 난다
+  float faceOpacity = vMask * (0.84 + lum * 0.16);
   float alpha = vFade * disc * faceOpacity * uOpacity;
   if (alpha < 0.015) discard;
 

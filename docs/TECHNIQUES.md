@@ -15,8 +15,9 @@
 | SplitText 글자 리빌 | `apps/*/composables/useSplitReveal.ts` (8앱 동일) | gsap SplitText | ✅ `splitRevealTween` |
 | 커스텀 커서(점+링 이중 추적) | `apps/pioneer/components/app/AppCursor.vue` | gsap | ✅ `ScrollCursor` |
 | 마그네틱 버튼 | `apps/pioneer/components/ui/MagneticButton.vue` | gsap | ✅ `ScrollMagneticButton` |
-| 얼굴 파티클(albedo/depth 텍스처 샘플링) + head tracking | `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
-| 렌더 이미지 → albedo/depth 텍스처 생성 | `scripts/make-face-textures.mjs` (ffmpeg만 사용) | — | — |
+| 얼굴 파티클(depth/normal 텍스처 샘플링 + 가중 배치) + head tracking | `apps/pioneer/webgl/{FaceParticles,faceParticleShaders}.ts` | three, gsap | — |
+| 3D 모델(GLB) → depth/normal 텍스처 베이킹 | `scripts/bake-face-textures.mjs` (headless three, 런타임 의존성 없음) | — | — |
+| 렌더 이미지 → albedo/depth 텍스처 추정 | `scripts/make-face-textures.mjs` (모델이 없을 때, ffmpeg만 사용) | — | — |
 | 타이핑 텍스트 출력 + 출력 동기 파티클 진동 | `apps/pioneer/components/experience/TypedText.vue` + `composables/{useTypewriter,useFaceType}.ts` + `faceParticleShaders.ts`(uType*) | gsap | — |
 | 클릭 리플 충격파(dot 필드) | `apps/pioneer/webgl/shaders.ts`(uRipple*) + `AuraScene.ripple()` | three, gsap | — |
 | 스크롤 속도→씬 가속(flow boost) | `apps/pioneer/webgl/AuraScene.ts`(flowBoost) + `ScrollProgress.vue` | gsap ST | ✅ (Flow/Warp에 내장) |
@@ -91,6 +92,23 @@
   잡는다(글자마다가 아니라 단어마다 쏘는 이유). 링은 `uTypeFactor`에 곱하지 말 것 —
   마지막 단어의 링이 끝까지 퍼져야 한다. 검증은 같은 uTime에서 링만 껐다 켠 두 장의
   차이의 **반경 가중 평균**이 나이에 따라 단조 증가하는지로 본다.
+- **모델 베이킹 vs 이미지 추정**: 정면 렌더 한 장에서 깊이를 추정하면(거리변환 +
+  가우시안 prior + 조명 detrend) 조명이 곧 깊이로 새어들어 이마가 코보다 앞이 되는
+  등 계속 손봐야 한다. 3D 모델이 있으면 깊이 버퍼와 법선 버퍼를 그냥 렌더하면 되고
+  추정 파이프라인이 통째로 사라진다. 모델은 런타임에 싣지 말고(24MB) **오프라인에서
+  텍스처만 구울 것**(수백 KB) — 런타임 구조는 그대로다.
+  베이킹 시 주의: ① 자동 프레이밍(정수리~턱 크롭)은 **마스크를 끈 실루엣**으로 재야
+  한다(켠 채로 재면 잘린 모양 기준으로 크롭이 잡힌다). ② 깊이는 보이는 앞면의 범위로
+  재정규화해야 8비트를 알뜰히 쓴다. ③ 커버리지를 별도 채널(G)에 담을 것 — 밝기 기반
+  마스크는 어두운 이목구비를 구멍으로 만든다.
+- **법선 relighting**: 법선이 정확해도 **광원이 정면이면 형태가 안 보인다** —
+  얼굴 앞면 전체에서 `dot(n,L)`이 1에 가까워 코·눈두덩·입술이 같은 밝기로 뭉개진다.
+  반드시 비스듬한 광원 + 하프 램버트(그림자 경계가 뚝 끊기지 않게) + 좁은 하이라이트
+  (`pow(key, 7)`)로 능선을 집어낼 것. 조명 대비를 바꾸면 additive 누적 평균이 함께
+  변하므로 색 계수를 다시 맞춰야 한다.
+- **파티클 가중 배치**: 커버리지 맵에서 뽑으면 얼굴 밖에 버려지는 파티클이 없다.
+  단축 보정(1/|n.z|)은 **얕게만** 줄 것 — 그대로 쓰면 실루엣에 몰려 얼굴이 테두리만
+  남는다. 정면 위주 연출에서는 화면 균등에 가까운 쪽이 형태가 잘 읽힌다.
 - **이목구비 지우기**: 클레이 렌더에서 입술은 너무 어두워 전경 판정(`isFg`)에
   걸리지 않는다 — albedo에 어두운 띠로 남는 게 아니라 아예 **마스크 구멍**이라
   값만 덮어써서는 지워지지 않는다. 마스크부터 메울 것. 그리고 **거리변환보다

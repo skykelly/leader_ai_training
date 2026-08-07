@@ -186,12 +186,12 @@ export class AuraScene {
       this.allocateGeometry(this.flow.positions, this.flow.randoms)
     } else if (!this.face) {
       // 얼굴 파티클은 텍스처 로드가 필요해 한 번만 만들고 재사용한다.
-      // 좁은 화면에서는 격자를 줄여 파티클 수를 낮춘다(228² → 160²).
+      // 좁은 화면에서는 파티클 수를 낮춘다.
       const base = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`
       this.face = new FaceParticles({
-        albedoUrl: `${base}face/face-albedo.png`,
         depthUrl: `${base}face/face-depth.png`,
-        grid: window.innerWidth < 760 ? 160 : undefined,
+        normalUrl: `${base}face/face-normal.png`,
+        count: window.innerWidth < 760 ? 26000 : undefined,
       })
       this.scene.add(this.face.points)
     }

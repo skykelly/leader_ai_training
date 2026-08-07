@@ -5,69 +5,73 @@ import { faceParticleVertex, faceParticleFragment, FACE_RINGS } from './facePart
 /**
  * 텍스처 기반 얼굴 파티클 — preparetopioneer.com/experience의 구조를 재현한다.
  *
- * 원본은 albedo/depth 텍스처 한 쌍(실사 인물)을 쓰지만, 여기서는 직접 제작한
- * 헤드 스컬프트에서 뽑은 텍스처를 쓴다. 기법(격자 파티클 → UV 샘플링 →
- * depth 변위 → 밝기=알파 → 수명 순환 → 바람장 흐름)은 원본과 동일하다.
+ * 텍스처는 3D 헤드 모델에서 구웠다(`scripts/bake-face-textures.mjs`):
+ *   face-depth.png   R=깊이(1=코), G=커버리지
+ *   face-normal.png  뷰 공간 법선
+ * 모델을 런타임에 싣지는 않는다 — GLB는 24MB지만 구운 텍스처는 수백 KB고,
+ * 런타임 구조(위치 → UV 샘플링 → depth 변위)는 그대로 쓸 수 있다.
+ *
+ * 파티클 배치는 균등 격자가 아니라 **커버리지·단축(foreshortening) 가중
+ * 샘플링**이다. 격자는 얼굴 밖에 절반 가까이를 버리고, 남은 것도 화면 면적
+ * 기준이라 옆으로 누운 표면(실루엣·콧방울)이 성기게 깔린다. 두 맵을 읽어
+ * 표면적 기준으로 뿌리면 같은 개수로 형태가 훨씬 또렷해진다.
  *
  * 파라미터 기본값은 원본 번들에서 확인한 값을 따랐다:
  *   파티클 수 52,000 / lifeSpan 2~4s(variation 0.5)
  *   noiseFrequency 0.4 / noiseIntensity 0.015 / opacity 0.75
- *
  * 다만 scale은 번들 값(18~19)이 아니라 13이다. 번들 값은 원본의 카메라 거리·
- * 뷰포트 기준이라 이 씬에 그대로 넣으면 점이 서로 겹쳐 얼룩진 덩어리가 된다.
- * 원본 영상은 점이 낱알로 분리되어 보이므로, 영상과 대조해 크기를 줄이고
- * 그만큼 점당 밝기를 올렸다(겹침이 줄면 additive 누적도 함께 줄기 때문).
+ * 뷰포트 기준이라 그대로 넣으면 점이 겹쳐 얼룩진 덩어리가 된다.
  */
 
-// 원본 particleCount 기본 범위(52,000~52,500)에 맞춘 격자 — 228² = 51,984
-const GRID = 228
-const DEFAULT_COUNT = GRID * GRID
+const DEFAULT_COUNT = 52000
 
 export interface FaceParticlesOptions {
-  albedoUrl: string
   depthUrl: string
-  /** 저사양/모바일에서 줄이기 위한 격자 한 변 (기본 228) */
-  grid?: number
+  normalUrl: string
+  /** 저사양/모바일에서 줄이기 위한 파티클 수 */
+  count?: number
+}
+
+/** 이미지를 픽셀 배열로 — 가중 샘플링은 CPU에서 해야 하므로 캔버스로 읽어낸다 */
+function readPixels(img: HTMLImageElement) {
+  const cv = document.createElement('canvas')
+  cv.width = img.naturalWidth
+  cv.height = img.naturalHeight
+  const ctx = cv.getContext('2d', { willReadFrequently: true })!
+  ctx.drawImage(img, 0, 0)
+  return ctx.getImageData(0, 0, cv.width, cv.height)
 }
 
 export class FaceParticles {
   readonly points: THREE.Points
   private geometry: THREE.BufferGeometry
   private material: THREE.ShaderMaterial
-  private albedo: THREE.Texture | null = null
   private depth: THREE.Texture | null = null
+  private normal: THREE.Texture | null = null
   private lastTime = 0
   private ringSlot = 0
+  private count: number
 
   constructor(opts: FaceParticlesOptions) {
-    const grid = opts.grid ?? GRID
-    const count = grid * grid
+    this.count = opts.count ?? DEFAULT_COUNT
 
-    const positions = new Float32Array(count * 3)
-    const seeds = new Float32Array(count * 4)
-    let p = 0
-    for (let j = 0; j < grid; j++) {
-      for (let i = 0; i < grid; i++) {
-        // 격자를 -1..1에 균일 배치하고 셀 안에서 살짝 흔들어 모아레를 없앤다
-        const jitterX = (Math.random() - 0.5) / grid
-        const jitterY = (Math.random() - 0.5) / grid
-        positions[p * 3] = (i / (grid - 1)) * 2 - 1 + jitterX * 2
-        positions[p * 3 + 1] = -((j / (grid - 1)) * 2 - 1) + jitterY * 2
-        positions[p * 3 + 2] = 0
-        seeds[p * 4] = Math.random()
-        seeds[p * 4 + 1] = Math.random()
-        seeds[p * 4 + 2] = Math.random()
-        seeds[p * 4 + 3] = Math.random()
-        p++
-      }
+    // 위치는 맵이 도착한 뒤에 채운다(가중 샘플링에 픽셀 값이 필요하다).
+    // 그동안 uOpacity가 0이라 화면에는 아무것도 안 보인다.
+    const positions = new Float32Array(this.count * 3)
+    const seeds = new Float32Array(this.count * 4)
+    for (let i = 0; i < this.count; i++) {
+      seeds[i * 4] = Math.random()
+      seeds[i * 4 + 1] = Math.random()
+      seeds[i * 4 + 2] = Math.random()
+      seeds[i * 4 + 3] = Math.random()
     }
 
     this.geometry = new THREE.BufferGeometry()
-    // position은 three가 프러스텀 컬링에 쓰므로 초기 격자를 그대로 넣어둔다
+    // position은 three가 프러스텀 컬링에 쓰므로 같은 버퍼를 공유한다
     this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     this.geometry.setAttribute('aInitialPos', new THREE.BufferAttribute(positions, 3))
     this.geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 4))
-    // 파티클이 바람장으로 격자 밖까지 흐르므로 컬링 구를 넉넉히 잡는다
+    // 파티클이 바람장으로 배치 범위 밖까지 흐르므로 컬링 구를 넉넉히 잡는다
     this.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 3)
 
     this.material = new THREE.ShaderMaterial({
@@ -102,40 +106,118 @@ export class FaceParticles {
         // 띠가 두꺼우면 파문이 아니라 덩어리가 지나가는 모양이 된다
         uRingWidth: { value: 0.055 },
         uMonoColor: { value: new THREE.Color('#8302af') },
-        uFaceAlbedo: { value: null },
         uFaceDepth: { value: null },
+        uFaceNormal: { value: null },
       },
     })
 
     this.points = new THREE.Points(this.geometry, this.material)
     this.points.frustumCulled = false
 
-    const loader = new THREE.TextureLoader()
-    loader.load(opts.albedoUrl, (t) => {
-      t.colorSpace = THREE.SRGBColorSpace
-      t.minFilter = THREE.LinearFilter
-      t.generateMipmaps = false
-      this.albedo = t
-      this.material.uniforms.uFaceAlbedo.value = t
-      this.maybeReveal()
-    })
-    loader.load(opts.depthUrl, (t) => {
-      t.minFilter = THREE.LinearFilter
-      t.generateMipmaps = false
-      this.depth = t
-      this.material.uniforms.uFaceDepth.value = t
-      this.maybeReveal()
-    })
+    this.loadMaps(opts.depthUrl, opts.normalUrl)
   }
 
-  /** 텍스처가 둘 다 준비되면 부드럽게 나타난다 */
-  private maybeReveal() {
-    if (!this.albedo || !this.depth) return
-    gsap.to(this.material.uniforms.uOpacity, { value: 0.75, duration: 1.6, ease: 'power2.out' })
+  private loadMaps(depthUrl: string, normalUrl: string) {
+    const load = (url: string) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = url
+      })
+
+    Promise.all([load(depthUrl), load(normalUrl)])
+      .then(([depthImg, normalImg]) => {
+        const mk = (img: HTMLImageElement) => {
+          const t = new THREE.Texture(img)
+          t.minFilter = THREE.LinearFilter
+          t.magFilter = THREE.LinearFilter
+          t.generateMipmaps = false
+          t.needsUpdate = true
+          return t
+        }
+        this.depth = mk(depthImg)
+        this.normal = mk(normalImg)
+        this.material.uniforms.uFaceDepth.value = this.depth
+        this.material.uniforms.uFaceNormal.value = this.normal
+
+        this.scatter(readPixels(depthImg), readPixels(normalImg))
+        gsap.to(this.material.uniforms.uOpacity, { value: 0.75, duration: 1.6, ease: 'power2.out' })
+      })
+      .catch(() => { /* 맵이 없으면 조용히 아무것도 그리지 않는다 */ })
+  }
+
+  /**
+   * 커버리지 × 단축 가중으로 파티클을 뿌린다.
+   *
+   * 화면에서 잰 면적은 표면이 옆으로 누울수록 작아진다(계수 |n.z|). 균등하게
+   * 뿌리면 그런 곳 — 실루엣, 콧방울, 턱선 — 이 성기게 깔려 형태가 흐려진다.
+   * 1/|n.z|로 가중해 뽑으면 표면적 기준으로 고르게 깔린다.
+   */
+  private scatter(depthData: ImageData, normalData: ImageData) {
+    const W = depthData.width
+    const H = depthData.height
+    const dep = depthData.data
+    const nrm = normalData.data
+    const nW = normalData.width
+
+    // 누적분포를 만들어 역함수로 뽑는다 — 기각 샘플링은 커버리지가 좁을 때 느리다
+    const weights = new Float32Array(W * H)
+    let total = 0
+    for (let j = 0; j < H; j++) {
+      for (let i = 0; i < W; i++) {
+        const o = j * W + i
+        const cover = dep[o * 4 + 1]! / 255
+        if (cover < 0.5) continue
+        // 법선 맵이 다른 해상도일 수 있으므로 비율로 인덱싱한다
+        const ni = Math.min(nW - 1, Math.round((i / W) * nW))
+        const nj = Math.min(normalData.height - 1, Math.round((j / H) * normalData.height))
+        const nz = Math.abs((nrm[(nj * nW + ni) * 4 + 2]! / 255) * 2 - 1)
+        // 가중을 세게 주면(1/nz 그대로) 실루엣에 파티클이 몰려 얼굴이 테두리만
+        // 남고, 평평한 이마·볼이 성겨진다. head tracking 회전이 ±30° 수준이라
+        // 화면 균등에 가깝게 두고 단축 보정은 얕게만 얹는 게 형태가 잘 읽힌다
+        const w = cover * (0.6 + 0.4 / Math.max(0.5, nz))
+        weights[o] = w
+        total += w
+      }
+    }
+    if (total <= 0) return
+
+    const cdf = new Float32Array(W * H)
+    let acc = 0
+    for (let o = 0; o < weights.length; o++) {
+      acc += weights[o]!
+      cdf[o] = acc / total
+    }
+
+    const pos = this.geometry.attributes.aInitialPos as THREE.BufferAttribute
+    const arr = pos.array as Float32Array
+    for (let p = 0; p < this.count; p++) {
+      const u = Math.random()
+      // 이분 탐색
+      let lo = 0
+      let hi = cdf.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (cdf[mid]! < u) lo = mid + 1
+        else hi = mid
+      }
+      const i = lo % W
+      const j = (lo / W) | 0
+      // 픽셀 안에서 흔들어 격자무늬(모아레)를 없앤다
+      const x = ((i + Math.random()) / W) * 2 - 1
+      const y = -(((j + Math.random()) / H) * 2 - 1)
+      arr[p * 3] = x
+      arr[p * 3 + 1] = y
+      arr[p * 3 + 2] = 0
+    }
+    pos.needsUpdate = true
+    ;(this.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
   }
 
   get ready() {
-    return !!(this.albedo && this.depth)
+    return !!(this.depth && this.normal)
   }
 
   update(time: number, mouseX: number, mouseY: number) {
@@ -177,7 +259,7 @@ export class FaceParticles {
       .to(u, { value: base, duration: 0.9, ease: 'power2.inOut' })
   }
 
-  /** 문장 출력 시작/끝 — 얼굴 전체가 동심원 파동으로 진동한다 */
+  /** 문장 출력 시작/끝 — 얼굴 전체가 동심원 파문으로 진동한다 */
   setTyping(on: boolean) {
     const u = this.material.uniforms.uTypeFactor
     gsap.killTweensOf(u)
@@ -189,7 +271,7 @@ export class FaceParticles {
   }
 
   /**
-   * 단어마다 확산 링 하나를 쏜다 — 중심에서 태어나 바깥으로 퍼지며 사라진다.
+   * 단어마다 확산 파문 하나를 쏜다 — 중심에서 태어나 바깥으로 퍼지며 사라진다.
    * 슬롯을 돌려 쓰므로 FACE_RINGS개까지 겹쳐 살아 있을 수 있고, 그보다 빨리
    * 쏘면 가장 오래된 링이 밀려난다.
    */
@@ -229,8 +311,8 @@ export class FaceParticles {
     gsap.killTweensOf(this.material.uniforms.uOpacity)
     this.geometry.dispose()
     this.material.dispose()
-    this.albedo?.dispose()
     this.depth?.dispose()
+    this.normal?.dispose()
   }
 }
 
