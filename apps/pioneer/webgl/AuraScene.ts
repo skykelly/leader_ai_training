@@ -249,6 +249,11 @@ export class AuraScene {
     this.face?.setColor(c, duration)
   }
 
+  /** 얼굴 파티클 색을 직접 지정한다(색상 선택기). 하이라이트·파문색은 파생된다 */
+  setFaceColor(hex: string, duration = 0.6) {
+    this.face?.setColor(hex, duration)
+  }
+
   /** 진단 답변에 따라 얼굴 파티클의 생김새를 바꾼다(원본의 개인화 방식) */
   setFacePersona(params: { scale?: number; noiseScale?: number; speed?: number }) {
     this.face?.setPersona(params)

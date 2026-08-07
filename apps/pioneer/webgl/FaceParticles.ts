@@ -26,6 +26,8 @@ import { faceParticleVertex, faceParticleFragment, FACE_RINGS } from './facePart
 
 const DEFAULT_COUNT = 34000
 
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+
 export interface FaceParticlesOptions {
   depthUrl: string
   normalUrl: string
@@ -244,12 +246,40 @@ export class FaceParticles {
     u.uPitch.value += (-mouseY * 0.28 - u.uPitch.value) * 0.06
   }
 
-  /** 팔레트 색으로 얼굴을 물들인다 */
+  /**
+   * 얼굴을 임의의 색으로 물들인다.
+   *
+   * 바탕색만 바꾸면 하이라이트(그린)와 파문(민트)이 그대로 남아 예컨대 빨강을
+   * 고르면 색이 서로 싸운다. 그래서 셋을 **한 색에서 파생**시킨다 — 기본
+   * 팔레트(보라 #8302af + 에메랄드 #34d399 + 민트 #5ef0c0)에서 잰 색상환 간격과
+   * 채도·명도를 그대로 옮기므로, 기본값에서는 지금과 같은 색이 나오고 어떤 색을
+   * 골라도 "바탕 + 하이라이트 + 파문"의 관계가 유지된다.
+   */
   setColor(hex: string, duration = 1.2) {
-    const target = new THREE.Color(hex)
-    gsap.to(this.material.uniforms.uMonoColor.value as THREE.Color, {
-      r: target.r, g: target.g, b: target.b, duration, overwrite: 'auto',
-    })
+    const base = new THREE.Color(hex)
+
+    // 너무 밝으면 additive로 타고 너무 어두우면 얼굴이 사라진다. 셰이더가 쓰는
+    // 선형 값 기준으로 최대 채널을 기본 보라(0.43) 언저리에 가둔다 —
+    // 색상·채도는 고른 대로 두고 세기만 안전 구간으로 끌어온다
+    const peak = Math.max(base.r, base.g, base.b)
+    if (peak > 0.0001) base.multiplyScalar(clamp(peak, 0.24, 0.58) / peak)
+
+    // HSL 연산은 sRGB에서 한다 — 작업 색공간(선형)에서 재면 눈으로 본 색상환과
+    // 어긋나 파생색이 엉뚱한 곳에 떨어진다
+    const hsl = { h: 0, s: 0, l: 0 }
+    base.getHSL(hsl, THREE.SRGBColorSpace)
+    const accent = new THREE.Color().setHSL((hsl.h + 1 - 0.352) % 1, 0.77, 0.52, THREE.SRGBColorSpace)
+    const ring = new THREE.Color().setHSL((hsl.h + 1 - 0.345) % 1, 0.83, 0.65, THREE.SRGBColorSpace)
+
+    for (const [uniform, target] of [
+      [this.material.uniforms.uMonoColor, base],
+      [this.material.uniforms.uAccentColor, accent],
+      [this.material.uniforms.uRingColor, ring],
+    ] as const) {
+      gsap.to(uniform.value as THREE.Color, {
+        r: target.r, g: target.g, b: target.b, duration, overwrite: 'auto',
+      })
+    }
   }
 
   /**

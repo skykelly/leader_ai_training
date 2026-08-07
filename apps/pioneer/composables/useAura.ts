@@ -57,6 +57,7 @@ export function useAura() {
     setScroll: (p: number) => scene?.setScroll(p),
     setFlowBoost: (v: number) => scene?.setFlowBoost(v),
     pulse: () => scene?.pulse(),
+    setFaceColor: (hex: string, duration?: number) => scene?.setFaceColor(hex, duration),
     setFacePersona: (params: { scale?: number; noiseScale?: number; speed?: number }) =>
       scene?.setFacePersona(params),
     faceExplode: () => scene?.faceExplode(),

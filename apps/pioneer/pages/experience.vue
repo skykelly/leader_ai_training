@@ -35,6 +35,10 @@
       {{ index === LINES.length - 1 ? 'Click to start over' : 'Click anywhere to continue' }}
     </p>
   </main>
+
+  <!-- main 밖에 둔다 — 안에 있으면 스와치 클릭이 advance로 버블링된다.
+       (컴포넌트 자동 임포트가 pathPrefix: false라 디렉터리 접두사가 없다) -->
+  <ColorPicker />
 </template>
 
 <script setup lang="ts">
