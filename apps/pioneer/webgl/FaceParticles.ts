@@ -91,11 +91,6 @@ export class FaceParticles {
         uNoiseFrequency: { value: 0.4 },
         uNoiseIntensity: { value: 0.015 },
         uDepthScale: { value: 0.55 },
-        // 곡률 음영 강도. 이 값이 이목구비 가시성을 사실상 혼자 좌우한다 —
-        // 0이면 dot(n,L) 그라디언트만 남아 얼굴이 매끈한 달걀로 읽힌다
-        uCavity: { value: 2.8 },
-        // 법선 맵이 실리면 실제 크기로 덮어쓴다
-        uTexel: { value: 1 / 1024 },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
         uYaw: { value: 0 },
         uPitch: { value: 0 },
@@ -154,8 +149,6 @@ export class FaceParticles {
         this.normal = mk(normalImg)
         this.material.uniforms.uFaceDepth.value = this.depth
         this.material.uniforms.uFaceNormal.value = this.normal
-        // 곡률 미분 간격은 맵 해상도에 묶여 있다 — 하드코딩하면 맵을 다시 구울 때 틀어진다
-        this.material.uniforms.uTexel.value = 1 / normalImg.naturalWidth
 
         this.scatter(readPixels(depthImg), readPixels(normalImg))
         gsap.to(this.material.uniforms.uOpacity, { value: 0.75, duration: 1.6, ease: 'power2.out' })
@@ -169,11 +162,6 @@ export class FaceParticles {
    * 화면에서 잰 면적은 표면이 옆으로 누울수록 작아진다(계수 |n.z|). 균등하게
    * 뿌리면 그런 곳 — 실루엣, 콧방울, 턱선 — 이 성기게 깔려 형태가 흐려진다.
    * 1/|n.z|로 가중해 뽑으면 표면적 기준으로 고르게 깔린다.
-   *
-   * 여기에 **곡률 가중**을 더한다. 점으로 그린 그림에서 대비는 밝기만이 아니라
-   * 밀도로도 온다 — 굴곡이 심한 자리(눈·코·입)에 점을 몰아주면 같은 개수로도
-   * 이목구비의 해상도만 올라간다. 밝기로만 대비를 주려 하면 얼굴 전체를
-   * 어둡게 깔아야 해서 실루엣까지 같이 죽는다.
    */
   private scatter(depthData: ImageData, normalData: ImageData) {
     const W = depthData.width
@@ -181,22 +169,6 @@ export class FaceParticles {
     const dep = depthData.data
     const nrm = normalData.data
     const nW = normalData.width
-    const nH = normalData.height
-
-    // 셰이더의 curvature()와 같은 식 — 법선의 발산. 부호는 버리고 크기만 쓴다
-    // (능선이든 골이든 "이목구비가 있는 자리"라는 신호는 같다)
-    const curvAt = (ni: number, nj: number, r: number) => {
-      const cl = (a: number, hi: number) => Math.min(hi - 1, Math.max(0, a))
-      const at = (a: number, b: number, ch: number) =>
-        (nrm[(cl(b, nH) * nW + cl(a, nW)) * 4 + ch]! / 255) * 2 - 1
-      // 셰이더와 같은 실루엣 가드 — 탭이 배경으로 떨어지면 미분이 폭발해
-      // 턱선에 파티클이 몰린다. 커버리지는 depth 맵 기준이라 좌표를 환산한다
-      const covAt = (a: number, b: number) =>
-        dep[(cl(Math.round((b / nH) * H), H) * W + cl(Math.round((a / nW) * W), W)) * 4 + 1]!
-      if (Math.min(covAt(ni + r, nj), covAt(ni - r, nj), covAt(ni, nj - r), covAt(ni, nj + r)) < 128) return 0
-      // 텍스처는 flipY라 uv.y 증가 = 이미지 행 감소
-      return (at(ni + r, nj, 0) - at(ni - r, nj, 0)) + (at(ni, nj - r, 1) - at(ni, nj + r, 1))
-    }
 
     // 누적분포를 만들어 역함수로 뽑는다 — 기각 샘플링은 커버리지가 좁을 때 느리다
     const weights = new Float32Array(W * H)
@@ -208,17 +180,12 @@ export class FaceParticles {
         if (cover < 0.5) continue
         // 법선 맵이 다른 해상도일 수 있으므로 비율로 인덱싱한다
         const ni = Math.min(nW - 1, Math.round((i / W) * nW))
-        const nj = Math.min(nH - 1, Math.round((j / H) * nH))
+        const nj = Math.min(normalData.height - 1, Math.round((j / H) * normalData.height))
         const nz = Math.abs((nrm[(nj * nW + ni) * 4 + 2]! / 255) * 2 - 1)
         // 가중을 세게 주면(1/nz 그대로) 실루엣에 파티클이 몰려 얼굴이 테두리만
         // 남고, 평평한 이마·볼이 성겨진다. head tracking 회전이 ±30° 수준이라
         // 화면 균등에 가깝게 두고 단축 보정은 얕게만 얹는 게 형태가 잘 읽힌다
-        const fore = 0.6 + 0.4 / Math.max(0.5, nz)
-        // 곡률 밀도. 상한을 두는 이유는 눈·콧구멍의 급격한 경계에서 값이 튀어
-        // 거기만 점이 뭉치고 이마·볼이 텅 비기 때문이다
-        const k = Math.abs(curvAt(ni, nj, 2)) * 0.65 + Math.abs(curvAt(ni, nj, 5)) * 0.35
-        const feat = 1 + Math.min(1.7, k * 5.5)
-        const w = cover * fore * feat
+        const w = cover * (0.6 + 0.4 / Math.max(0.5, nz))
         weights[o] = w
         total += w
       }
