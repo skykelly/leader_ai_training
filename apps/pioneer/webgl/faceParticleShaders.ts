@@ -39,6 +39,8 @@ uniform float uScaleVariation;    // 원본: 0~5
 uniform float uNoiseFrequency;    // 원본: 0.4
 uniform float uNoiseIntensity;    // 원본: 0.015
 uniform float uDepthScale;        // depth 텍스처 → z 변위 배율
+uniform float uCavity;            // 곡률 음영 강도 — 이목구비를 집어내는 항
+uniform float uTexel;             // 법선 맵 1픽셀의 uv 크기 (곡률 미분 간격)
 uniform float uPixelRatio;
 uniform float uYaw;
 uniform float uPitch;
@@ -57,6 +59,26 @@ varying float vSeedY;
 varying float vLight;
 varying float vMask;
 varying float vTypeWave;
+
+/**
+ * 법선의 발산(divergence) = 표면 곡률.
+ * 볼록한 능선(콧대·눈두덩·입술 가장자리)은 양수, 오목한 골(눈구멍·콧방울골·
+ * 입술선)은 음수다. **조명 방향과 무관**하다는 게 핵심 — dot(n,L)만 쓰면
+ * 광원 반대쪽 절반은 이목구비가 통째로 그림자에 잠겨 사라진다.
+ */
+float curvature(vec2 uv, float r) {
+  vec2 dx = vec2(r, 0.0);
+  vec2 dy = vec2(0.0, r);
+  // 실루엣 경계에서는 탭 하나가 배경으로 떨어져 미분이 폭발한다. 막지 않으면
+  // 턱선·관자놀이가 밝은 날개처럼 타올라 얼굴보다 눈에 먼저 들어온다
+  float cov = min(
+    min(texture2D(uFaceDepth, uv + dx).g, texture2D(uFaceDepth, uv - dx).g),
+    min(texture2D(uFaceDepth, uv + dy).g, texture2D(uFaceDepth, uv - dy).g));
+  if (cov < 0.5) return 0.0;
+  float cx = texture2D(uFaceNormal, uv + dx).r - texture2D(uFaceNormal, uv - dx).r;
+  float cy = texture2D(uFaceNormal, uv + dy).g - texture2D(uFaceNormal, uv - dy).g;
+  return cx + cy;
+}
 
 // --- simplex noise (Ashima 3D) ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -154,9 +176,23 @@ void main() {
   // 하프 램버트만으로는 그라디언트가 너무 매끄러워 콧대·눈두덩·입술 같은
   // 국소 굴곡이 묻힌다. 좁은 하이라이트를 하나 더 얹어 능선을 집어낸다
   float sheen = pow(key, 7.0);
+  // 반대쪽에서 들어오는 약한 필. 키 라이트 하나만 두면 오른쪽 절반이 균일한
+  // 어둠이 되어, 곡률로 이목구비를 살려도 실을 밝기 자체가 없다
+  float fill = max(0.0, dot(nrm, normalize(vec3(0.75, -0.15, 0.55)))) * 0.16;
   // 림은 아주 얕게만 — 세게 주면 얼굴이 테두리만 밝은 껍데기로 읽힌다
   float rim = pow(1.0 - clamp(nrm.z, 0.0, 1.0), 3.0);
-  vLight = 0.32 + key * 0.60 + sheen * 0.38 + rim * 0.06;
+  float lit = 0.22 + key * 0.58 + sheen * 0.34 + fill + rim * 0.06;
+
+  // 곡률 음영. 두 반경을 섞는 이유는 스케일이 다른 특징이 섞여 있기 때문 —
+  // 좁은 쪽이 입술선·쌍꺼풀·콧방울 같은 선을, 넓은 쪽이 눈구멍·볼우물 같은
+  // 면을 잡는다. 한쪽만 쓰면 나머지가 통째로 묻힌다.
+  float curv = curvature(uv, uTexel * 2.0) * 0.65
+             + curvature(uv, uTexel * 5.0) * 0.35;
+  // 오목한 쪽만 세게 누르고 볼록한 쪽은 살짝만 올린다. 얼굴은 "패인 곳이
+  // 어둡다"로 읽힌다 — 볼록에 같은 세기를 주면 눈두덩·입술 가장자리가 밝은
+  // 테두리로 타올라 눈이 고글처럼, 얼굴이 가면처럼 보인다.
+  float shade = 1.0 + curv * uCavity * (curv < 0.0 ? 1.25 : 0.7);
+  vLight = lit * clamp(shade, 0.17, 1.72);
 
   // --- 문장 출력 진동 ---
   // 단어마다 파문 하나가 얼굴 중심에서 태어나 바깥으로 퍼지며 잦아든다.
@@ -267,9 +303,12 @@ void main() {
   // 이미 밝은 쪽에서 묻히지만, 색으로 갈아끼우면 어디를 지나는지 또렷하다
   color = mix(color, uRingColor * (0.45 + lum * 0.85), clamp(vTypeWave * uRingTint, 0.0, 0.82));
 
-  // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 밝기를 그대로 알파로
-  // 쓰면 어두운 쪽이 통째로 사라져 형태에 구멍이 난다
-  float faceOpacity = vMask * (0.84 + lum * 0.16);
+  // 알파도 밝기를 따라가게 한다. 하한이 0.84이던 시절에는 그늘진 곳도 거의
+  // 최대 불투명도로 점을 찍어서, 색을 아무리 어둡게 잡아도 additive로 쌓이면
+  // 밝은 곳과 같은 톤으로 뭉갰다 — 이목구비가 사라진 주된 이유가 이것이다.
+  // 하한을 낮춰도 구멍이 나지 않는 건 이제 lum이 albedo 추정이 아니라
+  // 조명·곡률에서 나온 매끈한 값이고, 패인 자리에는 점을 더 많이 뿌리기 때문.
+  float faceOpacity = vMask * (0.34 + lum * 0.66);
   float alpha = vFade * disc * faceOpacity * uOpacity;
   if (alpha < 0.015) discard;
 
