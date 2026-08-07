@@ -16,14 +16,15 @@ import { faceParticleVertex, faceParticleFragment, FACE_RINGS } from './facePart
  * 기준이라 옆으로 누운 표면(실루엣·콧방울)이 성기게 깔린다. 두 맵을 읽어
  * 표면적 기준으로 뿌리면 같은 개수로 형태가 훨씬 또렷해진다.
  *
- * 파라미터 기본값은 원본 번들에서 확인한 값을 따랐다:
- *   파티클 수 52,000 / lifeSpan 2~4s(variation 0.5)
+ * 파라미터 기본값은 원본 번들에서 확인한 값을 따랐다(파티클 수는 밀도를
+ * 낮춰 달라는 요청에 따라 52,000 → 34,000):
+ *   lifeSpan 2~4s(variation 0.5)
  *   noiseFrequency 0.4 / noiseIntensity 0.015 / opacity 0.75
  * 다만 scale은 번들 값(18~19)이 아니라 13이다. 번들 값은 원본의 카메라 거리·
  * 뷰포트 기준이라 그대로 넣으면 점이 겹쳐 얼룩진 덩어리가 된다.
  */
 
-const DEFAULT_COUNT = 52000
+const DEFAULT_COUNT = 34000
 
 export interface FaceParticlesOptions {
   depthUrl: string
@@ -106,6 +107,12 @@ export class FaceParticles {
         // 띠가 두꺼우면 파문이 아니라 덩어리가 지나가는 모양이 된다
         uRingWidth: { value: 0.055 },
         uMonoColor: { value: new THREE.Color('#8302af') },
+        // 밝은 쪽에 섞이는 그린 — 앱 팔레트의 emerald(#34d399)
+        uAccentColor: { value: new THREE.Color('#34d399') },
+        uGreenAmount: { value: 0.26 },
+        // 파문이 지나갈 때의 색. 그린보다 한 단계 밝은 민트라 파문이 또렷하다
+        uRingColor: { value: new THREE.Color('#5ef0c0') },
+        uRingTint: { value: 0.62 },
         uFaceDepth: { value: null },
         uFaceNormal: { value: null },
       },

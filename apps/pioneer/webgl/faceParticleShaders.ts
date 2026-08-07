@@ -224,8 +224,12 @@ void main() {
 export const faceParticleFragment = /* glsl */ `
 precision highp float;
 
-uniform vec3 uMonoColor;   // 단색 틴트(팔레트 색)
-uniform float uOpacity;    // 원본: 0.75
+uniform vec3 uMonoColor;    // 기본 틴트(진보라)
+uniform vec3 uAccentColor;  // 밝은 쪽에 섞이는 그린
+uniform vec3 uRingColor;    // 파문이 지나갈 때의 색
+uniform float uGreenAmount; // 그린이 섞이는 최대 비율
+uniform float uRingTint;    // 파문의 색 전환 강도
+uniform float uOpacity;     // 원본: 0.75
 
 varying float vFade;
 varying float vSeedY;
@@ -247,14 +251,20 @@ void main() {
   // 커버리지·조도는 정점에서 한 번 샘플링해 varying으로 넘어온다
   float lum = vMask * vLight;
 
-  // 밝기를 팔레트 색에 실어 원본과 같은 진보라 톤을 만든다.
-  // 원본 파티클 평균색은 rgb(51,4,96)로 매우 어둡다 — 개별 파티클을 어둡게 두고
-  // additive로 겹친 곳만 밝아지게 해야 원본처럼 은은하게 깔린다
-  vec3 color = lum * uMonoColor * 0.18;
-  color += uMonoColor * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.05;
+  // 밝은 쪽일수록 그린이 섞인다. 전체를 균일하게 물들이지 않는 이유는,
+  // 그림자 쪽에 보라가 남아야 명암이 색으로도 읽혀 입체가 살기 때문이다.
+  float greenMix = smoothstep(0.40, 1.15, vLight) * uGreenAmount;
+  vec3 tint = mix(uMonoColor, uAccentColor, greenMix);
+
+  // 개별 파티클을 어둡게 두고 additive로 겹친 곳만 밝아지게 해야
+  // 원본처럼 은은하게 깔린다
+  vec3 color = lum * tint * 0.27;
+  color += tint * pow(1.0 - min(1.0, d * 2.0), 3.0) * 0.05;
   color += (vSeedY - 0.5) * 0.03;
-  // 파문의 마루에 있는 점이 밝아져 얼굴 위로 빛의 띠가 퍼져나간다
-  color += uMonoColor * vTypeWave * 0.05;
+
+  // 파문이 지나가는 자리는 밝기뿐 아니라 **색**이 바뀐다 — 더하기만 하면
+  // 이미 밝은 쪽에서 묻히지만, 색으로 갈아끼우면 어디를 지나는지 또렷하다
+  color = mix(color, uRingColor * (0.45 + lum * 0.85), clamp(vTypeWave * uRingTint, 0.0, 0.82));
 
   // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 밝기를 그대로 알파로
   // 쓰면 어두운 쪽이 통째로 사라져 형태에 구멍이 난다
