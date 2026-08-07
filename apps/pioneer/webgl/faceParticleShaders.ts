@@ -255,6 +255,8 @@ varying float vTypeWave;
 varying float vPointSize;
 
 const float DISC_RADIUS = 0.5;
+// 파문 색의 밝기를 튜닝했을 때의 uInkGain. 이 기준으로 나눠 gain에 비례시킨다
+#define INK_GAIN_REF 0.27
 
 void main() {
   // 원본과 같은 원형 디스크 + 중심 하이라이트
@@ -286,8 +288,13 @@ void main() {
   color += (vSeedY - 0.5) * 0.03;
 
   // 파문이 지나가는 자리는 밝기뿐 아니라 **색**이 바뀐다 — 더하기만 하면
-  // 이미 밝은 쪽에서 묻히지만, 색으로 갈아끼우면 어디를 지나는지 또렷하다
-  color = mix(color, uRingColor * (0.45 + lum * 0.85), clamp(vTypeWave * uRingTint, 0.0, 0.82));
+  // 이미 밝은 쪽에서 묻히지만, 색으로 갈아끼우면 어디를 지나는지 또렷하다.
+  //
+  // 파문 색의 밝기도 uInkGain을 따라가야 한다. 이 값은 gain이 0.27로 고정이던
+  // 시절에 맞춰 튜닝됐는데, 점을 작게 만들며 gain을 올리면 바탕만 밝아지고
+  // 파문은 그대로라 상대적으로 묻힌다(gain 1.3에서 파문 세기가 1/4.8로 줄었다).
+  vec3 ringTarget = uRingColor * (0.45 + lum * 0.85) * (uInkGain / INK_GAIN_REF);
+  color = mix(color, ringTarget, clamp(vTypeWave * uRingTint, 0.0, 0.82));
 
   // 얼굴 영역이면 고르게 보이도록 알파에 하한을 준다 — 밝기를 그대로 알파로
   // 쓰면 어두운 쪽이 통째로 사라져 형태에 구멍이 난다
